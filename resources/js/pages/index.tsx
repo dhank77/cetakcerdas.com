@@ -353,9 +353,13 @@ const Index = () => {
                                             size="sm"
                                             onClick={() => {
                                                 if (file?.type === 'application/pdf') {
-                                                    window.open(previewUrl, '_blank');
+                                                    const printWindow = window.open(previewUrl, '_blank');
+                                                    if (printWindow) {
+                                                        printWindow.onload = () => {
+                                                            printWindow.print();
+                                                        };
+                                                    }
                                                 } else {
-                                                    // For Word documents, open in new tab for better printing experience
                                                     window.open(previewUrl, '_blank');
                                                 }
                                             }}

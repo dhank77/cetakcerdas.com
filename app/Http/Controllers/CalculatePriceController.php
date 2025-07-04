@@ -24,7 +24,7 @@ class CalculatePriceController extends Controller
         )->post("$fastapi/analyze-document");
 
         $responApi = $response->json();
-        $priceColor = $responApi['color_pages'] * 1000;
+        $priceColor = ($responApi['color_pages'] + $responApi['photo_pages']) * 1000;
         $priceBw = $responApi['bw_pages'] * 500;
 
         return response()->json([

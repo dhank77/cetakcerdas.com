@@ -3,7 +3,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useAppearance } from '@/hooks/use-appearance';
+import React, { useCallback, useState } from 'react';
 
 interface PageDetail {
     halaman: number;
@@ -33,22 +34,11 @@ const Index = () => {
     const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-    const [isDarkMode, setIsDarkMode] = useState(false);
-
-    useEffect(() => {
-        const savedTheme = localStorage.getItem('theme');
-        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const shouldUseDark = savedTheme === 'dark' || (!savedTheme && systemPrefersDark);
-
-        setIsDarkMode(shouldUseDark);
-        document.documentElement.classList.toggle('dark', shouldUseDark);
-    }, []);
+    const { appearance, updateAppearance } = useAppearance();
 
     const toggleDarkMode = () => {
-        const newDarkMode = !isDarkMode;
-        setIsDarkMode(newDarkMode);
-        localStorage.setItem('theme', newDarkMode ? 'dark' : 'light');
-        document.documentElement.classList.toggle('dark', newDarkMode);
+        const newAppearance = appearance === 'dark' ? 'light' : 'dark';
+        updateAppearance(newAppearance);
     };
 
     const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -197,8 +187,8 @@ const Index = () => {
                             </div>
                         </div>
                         <Button variant="outline" size="sm" onClick={toggleDarkMode} className="gap-2">
-                            <span>{isDarkMode ? '☀️' : '🌙'}</span>
-                            <span>{isDarkMode ? 'Terang' : 'Gelap'}</span>
+                            <span>{appearance === 'dark' ? '☀️' : '🌙'}</span>
+                            <span>{appearance === 'dark' ? 'Terang' : 'Gelap'}</span>
                         </Button>
                     </div>
                 </div>
@@ -257,7 +247,9 @@ const Index = () => {
                                             <div className="text-4xl text-gray-400 dark:text-gray-600">📁</div>
                                             <div>
                                                 <p className="text-lg font-medium text-gray-900 dark:text-white">Letakkan dokumen Anda di sini</p>
-                                                <p className="text-sm text-gray-500 dark:text-gray-400">Mendukung dokumen PDF dan Word (.pdf, .docx)</p>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                    Mendukung dokumen PDF dan Word (.pdf, .docx)
+                                                </p>
                                                 <input
                                                     type="file"
                                                     accept=".pdf,.docx"
@@ -285,9 +277,9 @@ const Index = () => {
                             </CardContent>
                         </Card>
 
-                        <Card className="lg:col-span-1 dark:border-gray-700 dark:bg-gray-800/50 h-fit">
+                        <Card className="h-fit lg:col-span-1 dark:border-gray-700 dark:bg-gray-800/50">
                             <CardHeader className="pb-3">
-                                <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white text-base">
+                                <CardTitle className="flex items-center gap-2 text-base text-gray-900 dark:text-white">
                                     💰 Hasil Analisis Harga
                                 </CardTitle>
                             </CardHeader>
@@ -295,47 +287,37 @@ const Index = () => {
                                 {/* Price Summary Grid */}
                                 <div className="grid grid-cols-2 gap-2">
                                     {/* Black & White Print */}
-                                    <div className="text-center p-2 rounded-lg bg-gray-50 dark:bg-gray-700/30">
+                                    <div className="rounded-lg bg-gray-50 p-2 text-center dark:bg-gray-700/30">
                                         <div className="text-base font-bold text-gray-600 dark:text-gray-400">
                                             {analysisResult ? `Rp ${analysisResult.price_bw?.toLocaleString('id-ID') || '0'}` : 'Rp 0'}
                                         </div>
-                                        <div className="text-xs text-gray-600 dark:text-gray-400">
-                                            Hitam Putih
-                                        </div>
+                                        <div className="text-xs text-gray-600 dark:text-gray-400">Hitam Putih</div>
                                         {analysisResult && (
-                                            <div className="text-xs text-gray-500 dark:text-gray-500">
-                                                {analysisResult.bw_pages} hal
-                                            </div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-500">{analysisResult.bw_pages} hal</div>
                                         )}
                                     </div>
 
                                     {/* Color Print */}
-                                    <div className="text-center p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                                    <div className="rounded-lg bg-blue-50 p-2 text-center dark:bg-blue-900/20">
                                         <div className="text-base font-bold text-blue-600 dark:text-blue-400">
                                             {analysisResult ? `Rp ${analysisResult.price_color?.toLocaleString('id-ID') || '0'}` : 'Rp 0'}
                                         </div>
-                                        <div className="text-xs text-gray-600 dark:text-gray-400">
-                                            Berwarna
-                                        </div>
+                                        <div className="text-xs text-gray-600 dark:text-gray-400">Berwarna</div>
                                         {analysisResult && (
-                                            <div className="text-xs text-gray-500 dark:text-gray-500">
-                                                {analysisResult.color_pages} hal
-                                            </div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-500">{analysisResult.color_pages} hal</div>
                                         )}
                                     </div>
                                 </div>
 
                                 {/* Total Price Section */}
-                                <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                                <div className="rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-800 dark:bg-green-900/20">
                                     <div className="text-center">
                                         <div className="text-xl font-bold text-green-600 dark:text-green-400">
                                             {analysisResult?.total_price
                                                 ? `Rp ${analysisResult.total_price?.toLocaleString('id-ID') || '0'}`
                                                 : 'Rp 0'}
                                         </div>
-                                        <div className="text-sm text-gray-600 dark:text-gray-400">
-                                            Total Biaya Cetak
-                                        </div>
+                                        <div className="text-sm text-gray-600 dark:text-gray-400">Total Biaya Cetak</div>
                                         <div className="text-xs text-gray-500 dark:text-gray-500">
                                             {analysisResult?.total_pages ? `${analysisResult.total_pages} halaman total` : '0 halaman total'}
                                         </div>
@@ -464,7 +446,9 @@ const Index = () => {
                                                 <div className="flex items-center gap-2">
                                                     <div className="text-base">{getPageTypeIcon(page.jenis)}</div>
                                                     <div>
-                                                        <div className="font-medium text-gray-900 dark:text-white text-sm">Halaman {page.halaman}</div>
+                                                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                                            Halaman {page.halaman}
+                                                        </div>
                                                         <div className="text-xs text-gray-500 dark:text-gray-400">
                                                             {page.persentase_warna}% konten warna
                                                         </div>

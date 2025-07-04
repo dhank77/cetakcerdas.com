@@ -1,31 +1,11 @@
-import { Alert } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { useAppearance } from '@/hooks/use-appearance';
-import React, { useCallback, useState } from 'react';
-
-interface PageDetail {
-    halaman: number;
-    jenis: 'hitam_putih' | 'warna' | 'foto';
-    persentase_warna: number;
-}
-
-interface AnalysisResult {
-    price_color: number;
-    price_bw: number;
-    total_price: number;
-    total_pages: number;
-    color_pages: number;
-    bw_pages: number;
-    photo_pages: number;
-    page_details: PageDetail[];
-    pengaturan: {
-        threshold_warna: string;
-        threshold_foto: string;
-    };
-}
+import DetailedAnalysis from '@/components/frontend/analysis/detailed-analysis';
+import DocumentPreview from '@/components/frontend/analysis/document-preview';
+import FileUpload from '@/components/frontend/analysis/file-upload';
+import Header from '@/components/frontend/analysis/header';
+import PriceAnalysis from '@/components/frontend/analysis/price-analysis';
+import { Card, CardContent } from '@/components/ui/card';
+import { AnalysisResult } from '@/types/analysis';
+import { useState } from 'react';
 
 const Index = () => {
     const [file, setFile] = useState<File | null>(null);
@@ -34,75 +14,23 @@ const Index = () => {
     const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-    const { appearance, updateAppearance } = useAppearance();
 
-    const toggleDarkMode = () => {
-        const newAppearance = appearance === 'dark' ? 'light' : 'dark';
-        updateAppearance(newAppearance);
-    };
+    const handleFileSelect = (selectedFile: File) => {
+        setFile(selectedFile);
+        setError(null);
+        setAnalysisResult(null);
 
-    const handleDragOver = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(true);
-    }, []);
-
-    const handleDragLeave = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(false);
-    }, []);
-
-    const handleDrop = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(false);
-
-        const droppedFile = e.dataTransfer.files[0];
-        if (droppedFile) {
-            if (
-                droppedFile.type === 'application/pdf' ||
-                droppedFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-                droppedFile.name.toLowerCase().endsWith('.docx')
-            ) {
-                setFile(droppedFile);
-                setError(null);
-                setAnalysisResult(null);
-
-                if (droppedFile.type === 'application/pdf') {
-                    const url = URL.createObjectURL(droppedFile);
-                    setPreviewUrl(url);
-                } else if (
-                    droppedFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-                    droppedFile.name.toLowerCase().endsWith('.docx')
-                ) {
-                    const url = URL.createObjectURL(droppedFile);
-                    setPreviewUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`);
-                } else {
-                    setPreviewUrl(null);
-                }
-            } else {
-                setError('Silakan unggah dokumen PDF atau Word (.pdf, .docx)');
-            }
-        }
-    }, []);
-
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const selectedFile = e.target.files?.[0];
-        if (selectedFile) {
-            setFile(selectedFile);
-            setError(null);
-            setAnalysisResult(null);
-
-            if (selectedFile.type === 'application/pdf') {
-                const url = URL.createObjectURL(selectedFile);
-                setPreviewUrl(url);
-            } else if (
-                selectedFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-                selectedFile.name.toLowerCase().endsWith('.docx')
-            ) {
-                const url = URL.createObjectURL(selectedFile);
-                setPreviewUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`);
-            } else {
-                setPreviewUrl(null);
-            }
+        if (selectedFile.type === 'application/pdf') {
+            const url = URL.createObjectURL(selectedFile);
+            setPreviewUrl(url);
+        } else if (
+            selectedFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+            selectedFile.name.toLowerCase().endsWith('.docx')
+        ) {
+            const url = URL.createObjectURL(selectedFile);
+            setPreviewUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`);
+        } else {
+            setPreviewUrl(null);
         }
     };
 
@@ -137,7 +65,7 @@ const Index = () => {
         }
     };
 
-    const resetUpload = () => {
+    const handleReset = () => {
         setFile(null);
         setAnalysisResult(null);
         setError(null);
@@ -147,340 +75,37 @@ const Index = () => {
         }
     };
 
-    const getPageTypeColor = (type: string) => {
-        switch (type) {
-            case 'foto':
-                return 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700';
-            case 'warna':
-                return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700';
-            case 'hitam_putih':
-                return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600';
-            default:
-                return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600';
-        }
-    };
-
-    const getPageTypeIcon = (type: string) => {
-        switch (type) {
-            case 'foto':
-                return '📸';
-            case 'warna':
-                return '🎨';
-            case 'hitam_putih':
-                return '⚫';
-            default:
-                return '📄';
-        }
+    const handleDragStateChange = (isDragging: boolean) => {
+        setIsDragging(isDragging);
     };
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 transition-colors duration-300 dark:from-gray-900 dark:to-gray-800">
-            {/* Custom Header */}
-            <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900/80">
-                <div className="container mx-auto px-6 py-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="text-2xl">📄</div>
-                            <div>
-                                <h1 className="text-xl font-bold text-gray-900 dark:text-white">CetakCerdas.Com</h1>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">Analisis Dokumen Berbasis AI</p>
-                            </div>
-                        </div>
-                        <Button variant="outline" size="sm" onClick={toggleDarkMode} className="gap-2">
-                            <span>{appearance === 'dark' ? '☀️' : '🌙'}</span>
-                            <span>{appearance === 'dark' ? 'Terang' : 'Gelap'}</span>
-                        </Button>
-                    </div>
-                </div>
-            </header>
+            <Header />
 
             <main className="container mx-auto max-w-6xl px-6 py-8">
-                {/* Hero Section */}
                 <div className="mb-12 text-center">
                     <h2 className="mb-4 text-4xl font-bold text-gray-900 dark:text-white">Analisis Dokumen Cetak Anda</h2>
                 </div>
 
-                {/* Upload Section with Price Summary */}
                 <div className="space-y-6">
                     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                        <Card className="lg:col-span-2 dark:border-gray-700 dark:bg-gray-800/50">
-                            <CardHeader className="pb-4">
-                                <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">📁 Unggah Dokumen</CardTitle>
-                                <CardDescription className="dark:text-gray-400">Seret dan lepas dokumen PDF atau Word Anda di sini</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div
-                                    className={`rounded-lg border-2 border-dashed p-4 text-center transition-all duration-300 ${
-                                        isDragging
-                                            ? 'border-blue-400 bg-blue-50 dark:border-blue-500 dark:bg-blue-900/20'
-                                            : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-800/50'
-                                    }`}
-                                    onDragOver={handleDragOver}
-                                    onDragLeave={handleDragLeave}
-                                    onDrop={handleDrop}
-                                >
-                                    {file ? (
-                                        <div className="space-y-2">
-                                            <div className="text-3xl">📄</div>
-                                            <div>
-                                                <p className="font-medium text-gray-900 dark:text-white">{file.name}</p>
-                                                <p className="text-sm text-gray-500 dark:text-gray-400">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                                            </div>
-                                            <div className="flex justify-center gap-2">
-                                                <Button onClick={analyzeDocument} disabled={isAnalyzing}>
-                                                    {isAnalyzing ? (
-                                                        <>
-                                                            <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-white"></div>
-                                                            Menganalisis...
-                                                        </>
-                                                    ) : (
-                                                        <>🔍 Hitung Harga</>
-                                                    )}
-                                                </Button>
-                                                <Button variant="outline" onClick={resetUpload}>
-                                                    🗑️ Hapus
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-2 py-2">
-                                            <div className="text-4xl text-gray-400 dark:text-gray-600">📁</div>
-                                            <div>
-                                                <p className="text-lg font-medium text-gray-900 dark:text-white">Letakkan dokumen Anda di sini</p>
-                                                <p className="text-sm text-gray-500 dark:text-gray-400">
-                                                    Mendukung dokumen PDF dan Word (.pdf, .docx)
-                                                </p>
-                                                <input
-                                                    type="file"
-                                                    accept=".pdf,.docx"
-                                                    onChange={handleFileSelect}
-                                                    className="hidden"
-                                                    id="file-upload"
-                                                />
-                                                <label htmlFor="file-upload">
-                                                    <Button asChild variant="outline">
-                                                        <span className="cursor-pointer">Pilih File</span>
-                                                    </Button>
-                                                </label>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {error && (
-                                    <Alert className="mt-3 border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20">
-                                        <div className="text-red-800 dark:text-red-400">
-                                            <strong>Kesalahan:</strong> {error}
-                                        </div>
-                                    </Alert>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        <Card className="h-fit lg:col-span-1 dark:border-gray-700 dark:bg-gray-800/50">
-                            <CardHeader className="pb-3">
-                                <CardTitle className="flex items-center gap-2 text-base text-gray-900 dark:text-white">
-                                    💰 Hasil Analisis Harga
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-3">
-                                {/* Price Summary Grid */}
-                                <div className="grid grid-cols-2 gap-2">
-                                    {/* Black & White Print */}
-                                    <div className="rounded-lg bg-gray-50 p-2 text-center dark:bg-gray-700/30">
-                                        <div className="text-base font-bold text-gray-600 dark:text-gray-400">
-                                            {analysisResult ? `Rp ${analysisResult.price_bw?.toLocaleString('id-ID') || '0'}` : 'Rp 0'}
-                                        </div>
-                                        <div className="text-xs text-gray-600 dark:text-gray-400">Hitam Putih</div>
-                                        {analysisResult && (
-                                            <div className="text-xs text-gray-500 dark:text-gray-500">{analysisResult.bw_pages} hal</div>
-                                        )}
-                                    </div>
-
-                                    {/* Color Print */}
-                                    <div className="rounded-lg bg-blue-50 p-2 text-center dark:bg-blue-900/20">
-                                        <div className="text-base font-bold text-blue-600 dark:text-blue-400">
-                                            {analysisResult ? `Rp ${analysisResult.price_color?.toLocaleString('id-ID') || '0'}` : 'Rp 0'}
-                                        </div>
-                                        <div className="text-xs text-gray-600 dark:text-gray-400">Berwarna</div>
-                                        {analysisResult && (
-                                            <div className="text-xs text-gray-500 dark:text-gray-500">{analysisResult.color_pages} hal</div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Total Price Section */}
-                                <div className="rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-800 dark:bg-green-900/20">
-                                    <div className="text-center">
-                                        <div className="text-xl font-bold text-green-600 dark:text-green-400">
-                                            {analysisResult?.total_price
-                                                ? `Rp ${analysisResult.total_price?.toLocaleString('id-ID') || '0'}`
-                                                : 'Rp 0'}
-                                        </div>
-                                        <div className="text-sm text-gray-600 dark:text-gray-400">Total Biaya Cetak</div>
-                                        <div className="text-xs text-gray-500 dark:text-gray-500">
-                                            {analysisResult?.total_pages ? `${analysisResult.total_pages} halaman total` : '0 halaman total'}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Action Button */}
-                                <div className="pt-1">
-                                    <Button
-                                        onClick={() => {
-                                            const detailSection = document.getElementById('detail-analysis');
-                                            detailSection?.scrollIntoView({ behavior: 'smooth' });
-                                        }}
-                                        className="w-full gap-2 bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
-                                        size="sm"
-                                    >
-                                        📊 Lihat Detail Analisis
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
+                        <FileUpload
+                            file={file}
+                            isDragging={isDragging}
+                            isAnalyzing={isAnalyzing}
+                            error={error}
+                            onFileSelect={handleFileSelect}
+                            onAnalyze={analyzeDocument}
+                            onReset={handleReset}
+                            onDragStateChange={handleDragStateChange}
+                        />
+                        <PriceAnalysis analysisResult={analysisResult} />
                     </div>
 
-                    {/* Preview Section - Full Width Below Upload */}
-                    {previewUrl && (
-                        <Card className="dark:border-gray-700 dark:bg-gray-800/50">
-                            <CardHeader className="pb-3">
-                                <div className="flex items-center justify-between">
-                                    <CardTitle className="text-gray-900 dark:text-white">📖 Pratinjau Dokumen</CardTitle>
-                                    <div className="flex gap-2">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => {
-                                                if (file?.type === 'application/pdf') {
-                                                    const printWindow = window.open(previewUrl, '_blank');
-                                                    if (printWindow) {
-                                                        printWindow.onload = () => {
-                                                            printWindow.print();
-                                                        };
-                                                    }
-                                                } else {
-                                                    window.open(previewUrl, '_blank');
-                                                }
-                                            }}
-                                        >
-                                            🖨️ Cetak
-                                        </Button>
-                                        <Button variant="outline" size="sm" onClick={() => window.open(previewUrl, '_blank')}>
-                                            🔍 Buka di Tab Baru
-                                        </Button>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="overflow-hidden rounded-lg border dark:border-gray-600">
-                                    <iframe src={previewUrl} className="h-[500px] w-full" title="Document Preview" allow="print" />
-                                </div>
-                                <div className="mt-3 text-sm text-gray-600 dark:text-gray-400">
-                                    <p className="flex items-center gap-2">
-                                        <span>💡</span>
-                                        {file?.type === 'application/pdf'
-                                            ? 'Dokumen PDF dapat dicetak langsung dari pratinjau ini'
-                                            : 'Dokumen Word ditampilkan menggunakan Office Online. Klik "Cetak" atau "Buka di Tab Baru" untuk opsi cetak yang lebih baik'}
-                                    </p>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
+                    {file && <DocumentPreview file={file} previewUrl={previewUrl} />}
 
-                    {/* Analysis Results - Full Width */}
-                    {analysisResult && (
-                        <div id="detail-analysis" className="space-y-6">
-                            {/* Summary Cards */}
-                            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                                <Card className="dark:border-gray-700 dark:bg-gray-800/50">
-                                    <CardContent className="pt-4">
-                                        <div className="text-center">
-                                            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{analysisResult.total_pages}</div>
-                                            <div className="text-sm text-gray-600 dark:text-gray-400">Total Halaman</div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                <Card className="dark:border-gray-700 dark:bg-gray-800/50">
-                                    <CardContent className="pt-4">
-                                        <div className="text-center">
-                                            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                                                {analysisResult.photo_pages}
-                                            </div>
-                                            <div className="text-sm text-gray-600 dark:text-gray-400">Halaman Foto</div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                <Card className="dark:border-gray-700 dark:bg-gray-800/50">
-                                    <CardContent className="pt-4">
-                                        <div className="text-center">
-                                            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{analysisResult.color_pages}</div>
-                                            <div className="text-sm text-gray-600 dark:text-gray-400">Halaman Warna</div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                <Card className="dark:border-gray-700 dark:bg-gray-800/50">
-                                    <CardContent className="pt-4">
-                                        <div className="text-center">
-                                            <div className="text-2xl font-bold text-gray-600 dark:text-gray-400">{analysisResult.bw_pages}</div>
-                                            <div className="text-sm text-gray-600 dark:text-gray-400">Halaman Hitam Putih</div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </div>
-
-                            {/* Detailed Analysis */}
-                            <Card className="dark:border-gray-700 dark:bg-gray-800/50">
-                                <CardHeader className="pb-3">
-                                    <CardTitle className="text-gray-900 dark:text-white">📊 Analisis Detail</CardTitle>
-                                    <CardDescription className="dark:text-gray-400">
-                                        Rincian per halaman dengan persentase warna untuk kalkulasi biaya cetak
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="max-h-80 space-y-2 overflow-y-auto">
-                                        {analysisResult.page_details.map((page) => (
-                                            <div
-                                                key={page.halaman}
-                                                className="flex items-center justify-between rounded-lg border p-2 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700/50"
-                                            >
-                                                <div className="flex items-center gap-2">
-                                                    <div className="text-base">{getPageTypeIcon(page.jenis)}</div>
-                                                    <div>
-                                                        <div className="text-sm font-medium text-gray-900 dark:text-white">
-                                                            Halaman {page.halaman}
-                                                        </div>
-                                                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                                                            {page.persentase_warna}% konten warna
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <Badge className={getPageTypeColor(page.jenis)} variant="outline">
-                                                    {page.jenis.replace('_', ' ')}
-                                                </Badge>
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    <Separator className="my-3 dark:bg-gray-600" />
-
-                                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                                        <div className="mb-1 flex justify-between">
-                                            <span>Ambang Batas Warna:</span>
-                                            <span>{analysisResult.pengaturan.threshold_warna}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span>Ambang Batas Foto:</span>
-                                            <span>{analysisResult.pengaturan.threshold_foto}</span>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    )}
+                    {analysisResult && <DetailedAnalysis analysisResult={analysisResult} />}
 
                     {!analysisResult && !file && (
                         <Card className="dark:border-gray-700 dark:bg-gray-800/50">
@@ -495,16 +120,10 @@ const Index = () => {
                 </div>
             </main>
 
-            <p className="mx-auto max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-                Unggah dokumen PDF atau Word Anda untuk mendapatkan analisis detail jenis halaman, distribusi warna, dan kalkulasi biaya cetak untuk
-                UMKM percetakan
-            </p>
-
-            {/* Footer */}
             <footer className="mt-16 border-t border-gray-200 bg-white/80 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900/80">
                 <div className="container mx-auto px-6 py-8">
                     <div className="text-center text-gray-600 dark:text-gray-400">
-                        <p>© 2024 CetakCerdas. Solusi Cerdas untuk UMKM Percetakan.</p>
+                        <p>© 2025 CetakCerdas. Solusi Cerdas untuk UMKM Percetakan.</p>
                     </div>
                 </div>
             </footer>

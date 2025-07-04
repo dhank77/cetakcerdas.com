@@ -1,10 +1,22 @@
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
-import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid } from 'lucide-react';
+import { 
+    LayoutGrid, 
+    FileText, 
+    Printer, 
+    Package, 
+    Users, 
+    BarChart3, 
+    Settings, 
+    CreditCard, 
+    Truck, 
+    Calendar,
+    HelpCircle,
+    MessageSquare
+} from 'lucide-react';
 import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
@@ -13,28 +25,73 @@ const mainNavItems: NavItem[] = [
         href: '/dashboard',
         icon: LayoutGrid,
     },
+    {
+        title: 'Pesanan',
+        href: '/orders',
+        icon: FileText,
+    },
+    {
+        title: 'Produk Cetak',
+        href: '/products',
+        icon: Printer,
+    },
+    {
+        title: 'Inventori',
+        href: '/inventory',
+        icon: Package,
+    },
+    {
+        title: 'Pelanggan',
+        href: '/customers',
+        icon: Users,
+    },
+    {
+        title: 'Laporan',
+        href: '/reports',
+        icon: BarChart3,
+    },
+    {
+        title: 'Pengiriman',
+        href: '/shipping',
+        icon: Truck,
+    },
+    {
+        title: 'Jadwal Produksi',
+        href: '/schedule',
+        icon: Calendar,
+    },
 ];
 
 const footerNavItems: NavItem[] = [
     {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: Folder,
+        title: 'Pengaturan',
+        href: '/settings',
+        icon: Settings,
     },
     {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
-        icon: BookOpen,
+        title: 'Billing',
+        href: '/billing',
+        icon: CreditCard,
+    },
+    {
+        title: 'Bantuan',
+        href: '/help',
+        icon: HelpCircle,
+    },
+    {
+        title: 'Dukungan',
+        href: '/support',
+        icon: MessageSquare,
     },
 ];
 
 export function AppSidebar() {
     return (
-        <Sidebar collapsible="icon" variant="inset">
-            <SidebarHeader>
+        <Sidebar collapsible="icon" variant="inset" className="border-r border-gray-200 dark:border-gray-800">
+            <SidebarHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 border-b border-gray-200 dark:border-gray-700">
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" asChild>
+                        <SidebarMenuButton size="lg" asChild className="hover:bg-white/50 dark:hover:bg-gray-800/50 transition-colors">
                             <Link href="/dashboard" prefetch>
                                 <AppLogo />
                             </Link>
@@ -43,13 +100,12 @@ export function AppSidebar() {
                 </SidebarMenu>
             </SidebarHeader>
 
-            <SidebarContent>
+            <SidebarContent className="bg-white dark:bg-gray-900">
                 <NavMain items={mainNavItems} />
             </SidebarContent>
 
-            <SidebarFooter>
+            <SidebarFooter className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 border-t border-gray-200 dark:border-gray-700">
                 <NavFooter items={footerNavItems} className="mt-auto" />
-                <NavUser />
             </SidebarFooter>
         </Sidebar>
     );

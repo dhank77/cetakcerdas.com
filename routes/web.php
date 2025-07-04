@@ -5,7 +5,7 @@ use App\Http\Controllers\Frontend\LandingController;
 use App\Http\Controllers\Frontend\PrintController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('', LandingController::class)->name('landing');
+Route::get('', LandingController::class)->name('home');
 
 Route::get('print/{slug?}', [PrintController::class, 'index'])->name('print');
 Route::post('/calculate-price', CalculatePriceController::class)->name('calculate-price');

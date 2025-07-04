@@ -12,6 +12,9 @@ interface PageDetail {
 }
 
 interface AnalysisResult {
+    price_color: number;
+    price_bw: number;
+    total_price: number;
     total_pages: number;
     color_pages: number;
     bw_pages: number;
@@ -207,80 +210,159 @@ const Index = () => {
                     <h2 className="mb-4 text-4xl font-bold text-gray-900 dark:text-white">Analisis Dokumen Cetak Anda</h2>
                 </div>
 
-                {/* Upload Section - Full Width */}
-                <div className="space-y-8">
-                    <Card className="dark:border-gray-700 dark:bg-gray-800/50">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">📁 Unggah Dokumen</CardTitle>
-                            <CardDescription className="dark:text-gray-400">
-                                Seret dan lepas dokumen PDF atau Word Anda di sini, atau klik untuk memilih file
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div
-                                className={`rounded-lg border-2 border-dashed p-6 text-center transition-all duration-300 ${
-                                    isDragging
-                                        ? 'border-blue-400 bg-blue-50 dark:border-blue-500 dark:bg-blue-900/20'
-                                        : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-800/50'
-                                }`}
-                                onDragOver={handleDragOver}
-                                onDragLeave={handleDragLeave}
-                                onDrop={handleDrop}
-                            >
-                                {file ? (
-                                    <div className="space-y-4">
-                                        <div className="text-4xl">📄</div>
-                                        <div>
-                                            <p className="font-medium text-gray-900 dark:text-white">{file.name}</p>
-                                            <p className="text-sm text-gray-500 dark:text-gray-400">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                                        </div>
-                                        <div className="flex justify-center gap-3">
-                                            <Button onClick={analyzeDocument} disabled={isAnalyzing} size="lg">
-                                                {isAnalyzing ? (
-                                                    <>
-                                                        <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-white"></div>
-                                                        Menganalisis...
-                                                    </>
-                                                ) : (
-                                                    <>🔍 Hitung Harga</>
-                                                )}
-                                            </Button>
-                                            <Button variant="outline" onClick={resetUpload} size="lg">
-                                                🗑️ Hapus
-                                            </Button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-2 py-2">
-                                        <div className="text-5xl text-gray-400 dark:text-gray-600">📁</div>
-                                        <div>
-                                            <p className="text-xl font-medium text-gray-900 dark:text-white">Letakkan dokumen Anda di sini</p>
-                                            <p className="text-gray-500 dark:text-gray-400">Mendukung dokumen PDF dan Word (.pdf, .docx)</p>
-                                            <input type="file" accept=".pdf,.docx" onChange={handleFileSelect} className="hidden" id="file-upload" />
-                                            <label htmlFor="file-upload">
-                                                <Button asChild variant="outline" size="lg">
-                                                    <span className="cursor-pointer">Pilih File</span>
+                {/* Upload Section with Price Summary */}
+                <div className="space-y-6">
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                        <Card className="lg:col-span-2 dark:border-gray-700 dark:bg-gray-800/50">
+                            <CardHeader className="pb-4">
+                                <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">📁 Unggah Dokumen</CardTitle>
+                                <CardDescription className="dark:text-gray-400">Seret dan lepas dokumen PDF atau Word Anda di sini</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div
+                                    className={`rounded-lg border-2 border-dashed p-4 text-center transition-all duration-300 ${
+                                        isDragging
+                                            ? 'border-blue-400 bg-blue-50 dark:border-blue-500 dark:bg-blue-900/20'
+                                            : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-800/50'
+                                    }`}
+                                    onDragOver={handleDragOver}
+                                    onDragLeave={handleDragLeave}
+                                    onDrop={handleDrop}
+                                >
+                                    {file ? (
+                                        <div className="space-y-2">
+                                            <div className="text-3xl">📄</div>
+                                            <div>
+                                                <p className="font-medium text-gray-900 dark:text-white">{file.name}</p>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                                            </div>
+                                            <div className="flex justify-center gap-2">
+                                                <Button onClick={analyzeDocument} disabled={isAnalyzing}>
+                                                    {isAnalyzing ? (
+                                                        <>
+                                                            <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-white"></div>
+                                                            Menganalisis...
+                                                        </>
+                                                    ) : (
+                                                        <>🔍 Hitung Harga</>
+                                                    )}
                                                 </Button>
-                                            </label>
+                                                <Button variant="outline" onClick={resetUpload}>
+                                                    🗑️ Hapus
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2 py-2">
+                                            <div className="text-4xl text-gray-400 dark:text-gray-600">📁</div>
+                                            <div>
+                                                <p className="text-lg font-medium text-gray-900 dark:text-white">Letakkan dokumen Anda di sini</p>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400">Mendukung dokumen PDF dan Word (.pdf, .docx)</p>
+                                                <input
+                                                    type="file"
+                                                    accept=".pdf,.docx"
+                                                    onChange={handleFileSelect}
+                                                    className="hidden"
+                                                    id="file-upload"
+                                                />
+                                                <label htmlFor="file-upload">
+                                                    <Button asChild variant="outline">
+                                                        <span className="cursor-pointer">Pilih File</span>
+                                                    </Button>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {error && (
+                                    <Alert className="mt-3 border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20">
+                                        <div className="text-red-800 dark:text-red-400">
+                                            <strong>Kesalahan:</strong> {error}
+                                        </div>
+                                    </Alert>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        <Card className="lg:col-span-1 dark:border-gray-700 dark:bg-gray-800/50 h-fit">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white text-base">
+                                    💰 Hasil Analisis Harga
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                {/* Price Summary Grid */}
+                                <div className="grid grid-cols-2 gap-2">
+                                    {/* Black & White Print */}
+                                    <div className="text-center p-2 rounded-lg bg-gray-50 dark:bg-gray-700/30">
+                                        <div className="text-base font-bold text-gray-600 dark:text-gray-400">
+                                            {analysisResult ? `Rp ${analysisResult.price_bw?.toLocaleString('id-ID') || '0'}` : 'Rp 0'}
+                                        </div>
+                                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                                            Hitam Putih
+                                        </div>
+                                        {analysisResult && (
+                                            <div className="text-xs text-gray-500 dark:text-gray-500">
+                                                {analysisResult.bw_pages} hal
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Color Print */}
+                                    <div className="text-center p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                                        <div className="text-base font-bold text-blue-600 dark:text-blue-400">
+                                            {analysisResult ? `Rp ${analysisResult.price_color?.toLocaleString('id-ID') || '0'}` : 'Rp 0'}
+                                        </div>
+                                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                                            Berwarna
+                                        </div>
+                                        {analysisResult && (
+                                            <div className="text-xs text-gray-500 dark:text-gray-500">
+                                                {analysisResult.color_pages} hal
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Total Price Section */}
+                                <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                                    <div className="text-center">
+                                        <div className="text-xl font-bold text-green-600 dark:text-green-400">
+                                            {analysisResult?.total_price
+                                                ? `Rp ${analysisResult.total_price?.toLocaleString('id-ID') || '0'}`
+                                                : 'Rp 0'}
+                                        </div>
+                                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                                            Total Biaya Cetak
+                                        </div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-500">
+                                            {analysisResult?.total_pages ? `${analysisResult.total_pages} halaman total` : '0 halaman total'}
                                         </div>
                                     </div>
-                                )}
-                            </div>
+                                </div>
 
-                            {error && (
-                                <Alert className="mt-4 border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20">
-                                    <div className="text-red-800 dark:text-red-400">
-                                        <strong>Kesalahan:</strong> {error}
-                                    </div>
-                                </Alert>
-                            )}
-                        </CardContent>
-                    </Card>
+                                {/* Action Button */}
+                                <div className="pt-1">
+                                    <Button
+                                        onClick={() => {
+                                            const detailSection = document.getElementById('detail-analysis');
+                                            detailSection?.scrollIntoView({ behavior: 'smooth' });
+                                        }}
+                                        className="w-full gap-2 bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
+                                        size="sm"
+                                    >
+                                        📊 Lihat Detail Analisis
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
 
                     {/* Preview Section - Full Width Below Upload */}
                     {previewUrl && (
                         <Card className="dark:border-gray-700 dark:bg-gray-800/50">
-                            <CardHeader>
+                            <CardHeader className="pb-3">
                                 <div className="flex items-center justify-between">
                                     <CardTitle className="text-gray-900 dark:text-white">📖 Pratinjau Dokumen</CardTitle>
                                     <div className="flex gap-2">
@@ -306,9 +388,9 @@ const Index = () => {
                             </CardHeader>
                             <CardContent>
                                 <div className="overflow-hidden rounded-lg border dark:border-gray-600">
-                                    <iframe src={previewUrl} className="h-[600px] w-full" title="Document Preview" allow="print" />
+                                    <iframe src={previewUrl} className="h-[500px] w-full" title="Document Preview" allow="print" />
                                 </div>
-                                <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
+                                <div className="mt-3 text-sm text-gray-600 dark:text-gray-400">
                                     <p className="flex items-center gap-2">
                                         <span>💡</span>
                                         {file?.type === 'application/pdf'
@@ -322,22 +404,22 @@ const Index = () => {
 
                     {/* Analysis Results - Full Width */}
                     {analysisResult && (
-                        <div className="space-y-8">
+                        <div id="detail-analysis" className="space-y-6">
                             {/* Summary Cards */}
-                            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                                 <Card className="dark:border-gray-700 dark:bg-gray-800/50">
-                                    <CardContent className="pt-6">
+                                    <CardContent className="pt-4">
                                         <div className="text-center">
-                                            <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{analysisResult.total_pages}</div>
+                                            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{analysisResult.total_pages}</div>
                                             <div className="text-sm text-gray-600 dark:text-gray-400">Total Halaman</div>
                                         </div>
                                     </CardContent>
                                 </Card>
 
                                 <Card className="dark:border-gray-700 dark:bg-gray-800/50">
-                                    <CardContent className="pt-6">
+                                    <CardContent className="pt-4">
                                         <div className="text-center">
-                                            <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+                                            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                                                 {analysisResult.photo_pages}
                                             </div>
                                             <div className="text-sm text-gray-600 dark:text-gray-400">Halaman Foto</div>
@@ -346,18 +428,18 @@ const Index = () => {
                                 </Card>
 
                                 <Card className="dark:border-gray-700 dark:bg-gray-800/50">
-                                    <CardContent className="pt-6">
+                                    <CardContent className="pt-4">
                                         <div className="text-center">
-                                            <div className="text-3xl font-bold text-green-600 dark:text-green-400">{analysisResult.color_pages}</div>
+                                            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{analysisResult.color_pages}</div>
                                             <div className="text-sm text-gray-600 dark:text-gray-400">Halaman Warna</div>
                                         </div>
                                     </CardContent>
                                 </Card>
 
                                 <Card className="dark:border-gray-700 dark:bg-gray-800/50">
-                                    <CardContent className="pt-6">
+                                    <CardContent className="pt-4">
                                         <div className="text-center">
-                                            <div className="text-3xl font-bold text-gray-600 dark:text-gray-400">{analysisResult.bw_pages}</div>
+                                            <div className="text-2xl font-bold text-gray-600 dark:text-gray-400">{analysisResult.bw_pages}</div>
                                             <div className="text-sm text-gray-600 dark:text-gray-400">Halaman Hitam Putih</div>
                                         </div>
                                     </CardContent>
@@ -366,24 +448,24 @@ const Index = () => {
 
                             {/* Detailed Analysis */}
                             <Card className="dark:border-gray-700 dark:bg-gray-800/50">
-                                <CardHeader>
+                                <CardHeader className="pb-3">
                                     <CardTitle className="text-gray-900 dark:text-white">📊 Analisis Detail</CardTitle>
                                     <CardDescription className="dark:text-gray-400">
                                         Rincian per halaman dengan persentase warna untuk kalkulasi biaya cetak
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="max-h-96 space-y-3 overflow-y-auto">
+                                    <div className="max-h-80 space-y-2 overflow-y-auto">
                                         {analysisResult.page_details.map((page) => (
                                             <div
                                                 key={page.halaman}
-                                                className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700/50"
+                                                className="flex items-center justify-between rounded-lg border p-2 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700/50"
                                             >
-                                                <div className="flex items-center gap-3">
-                                                    <div className="text-lg">{getPageTypeIcon(page.jenis)}</div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="text-base">{getPageTypeIcon(page.jenis)}</div>
                                                     <div>
-                                                        <div className="font-medium text-gray-900 dark:text-white">Halaman {page.halaman}</div>
-                                                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                                                        <div className="font-medium text-gray-900 dark:text-white text-sm">Halaman {page.halaman}</div>
+                                                        <div className="text-xs text-gray-500 dark:text-gray-400">
                                                             {page.persentase_warna}% konten warna
                                                         </div>
                                                     </div>
@@ -395,7 +477,7 @@ const Index = () => {
                                         ))}
                                     </div>
 
-                                    <Separator className="my-4 dark:bg-gray-600" />
+                                    <Separator className="my-3 dark:bg-gray-600" />
 
                                     <div className="text-sm text-gray-600 dark:text-gray-400">
                                         <div className="mb-1 flex justify-between">
@@ -414,10 +496,10 @@ const Index = () => {
 
                     {!analysisResult && !file && (
                         <Card className="dark:border-gray-700 dark:bg-gray-800/50">
-                            <CardContent className="pt-6">
-                                <div className="py-12 text-center text-gray-500 dark:text-gray-400">
-                                    <div className="mb-4 text-6xl">📈</div>
-                                    <p className="text-lg">Unggah dokumen untuk melihat hasil analisis dan kalkulasi biaya cetak</p>
+                            <CardContent className="pt-4">
+                                <div className="py-8 text-center text-gray-500 dark:text-gray-400">
+                                    <div className="mb-3 text-5xl">📈</div>
+                                    <p className="text-base">Unggah dokumen untuk melihat hasil analisis dan kalkulasi biaya cetak</p>
                                 </div>
                             </CardContent>
                         </Card>

@@ -22,9 +22,16 @@ class CalculatePriceController extends Controller
             file_get_contents($file),
             $file->getClientOriginalName()
         )->post("$fastapi/analyze-document");
-        
-        $price = $request->width * $request->height * $request->thickness * $request->quantity;
 
-        return response()->json($response->json());
+        $responApi = $response->json();
+        $priceColor = $responApi['color_pages'] * 1000;
+        $priceBw = $responApi['bw_pages'] * 500;
+
+        return response()->json([
+            'price_color' => $priceColor,
+            'price_bw' => $priceBw,
+            'total_price' => $priceColor + $priceBw,
+            ...$responApi,
+        ]);
     }
 }

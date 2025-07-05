@@ -4,7 +4,7 @@ import { SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import { User } from '@/types';
 
-const Header = ({ isLocked, user }: { isLocked: boolean, user: User | null }) => {
+const Header = ({ isLocked, user }: { isLocked?: boolean, user?: User | null }) => {
 
     const { auth } = usePage<SharedData>().props;
 

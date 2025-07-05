@@ -166,9 +166,11 @@ const Index = () => {
                                         <span className="dark:text-gray-300">Deteksi jenis halaman</span>
                                     </li>
                                 </ul>
-                                <Button className="w-full" variant="outline">
-                                    Mulai Gratis
-                                </Button>
+                                <Link href={route('register')}>
+                                    <Button className="w-full" variant="outline">
+                                        Mulai Gratis
+                                    </Button>
+                                </Link>
                             </CardContent>
                         </Card>
 
@@ -213,7 +215,7 @@ const Index = () => {
                                     </li>
                                     <li className="flex items-center gap-3">
                                         <CheckCircle className="h-5 w-5 text-green-600" />
-                                        <span className="dark:text-gray-300">Priority support</span>
+                                        <span className="dark:text-gray-300">Dukungan prioritas</span>
                                     </li>
                                     <li className="flex items-center gap-3">
                                         <CheckCircle className="h-5 w-5 text-green-600" />

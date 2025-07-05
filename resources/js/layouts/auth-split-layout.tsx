@@ -76,7 +76,7 @@ export default function AuthSplitLayout({ children }: AuthSplitLayoutProps) {
                                     <span className="font-semibold text-green-800 dark:text-green-300">Gratis untuk Selamanya</span>
                                 </div>
                                 <p className="text-sm text-green-700 dark:text-green-300">
-                                    Mulai dengan 5 dokumen per hari, upgrade kapan saja sesuai kebutuhan bisnis Anda.
+                                    Unlimited dokumen per hari, upgrade kapan saja sesuai kebutuhan bisnis Anda.
                                 </p>
                             </div>
                         </div>

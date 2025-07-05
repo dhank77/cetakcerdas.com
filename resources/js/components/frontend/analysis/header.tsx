@@ -17,32 +17,60 @@ const Header = ({ isLocked, user }: { isLocked?: boolean, user?: User | null }) 
 
     return (
         <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900/80">
-            <div className="container mx-auto px-6 py-4">
+            <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4">
                 <div className="flex items-center justify-between">
-                    <Link href="/">
-                        <div className="flex items-center gap-3">
-                            <div className="text-2xl">🖨️</div>
-                            <div>
-                                <h1 className="text-xl font-bold text-gray-900 dark:text-white">CetakCerdas.Com</h1>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">Analisis Dokumen Berbasis AI</p>
+                    {/* Logo Section - Responsive */}
+                    <Link href="/" className="flex-shrink-0">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                            <div className="text-xl sm:text-2xl">🖨️</div>
+                            <div className="min-w-0">
+                                <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white truncate">
+                                    <span className="hidden sm:inline">CetakCerdas.Com</span>
+                                    <span className="sm:hidden">CetakCerdas</span>
+                                </h1>
+                                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">
+                                    <span className="hidden sm:inline">Analisis Dokumen Berbasis AI</span>
+                                    <span className="sm:hidden">AI Document</span>
+                                </p>
                             </div>
                         </div>
                     </Link>
-                    <div className='flex gap-x-4 items-center'>
+                    
+                    {/* Actions Section - Responsive */}
+                    <div className='flex gap-x-2 sm:gap-x-4 items-center flex-shrink-0'>
                         {
                             (!auth.user && isLocked) || user == null && (
-                                <div className='flex gap-x-2 items-center'>
+                                <div className='flex gap-x-1 sm:gap-x-2 items-center'>
                                     <Link href="/login">
-                                        <Button variant="outline" size="lg">Masuk</Button>
+                                        <Button 
+                                            variant="outline" 
+                                            size="sm" 
+                                            className="text-xs sm:text-sm px-2 sm:px-4"
+                                        >
+                                            <span>Masuk</span>
+                                        </Button>
                                     </Link>
                                     <Link href="/register">
-                                        <Button>Daftar Gratis</Button>
+                                        <Button 
+                                            size="sm" 
+                                            className="text-xs sm:text-sm px-2 sm:px-4"
+                                        >
+                                            <span className="hidden sm:inline">Daftar Gratis</span>
+                                            <span className="sm:hidden">Daftar</span>
+                                        </Button>
                                     </Link>
                                 </div>
                             )
                         }
-                        <Button variant="outline" size="icon" onClick={toggleDarkMode} className="gap-2">
-                            <span>{appearance === 'dark' ? '☀️' : '🌙'}</span>
+                        <Button 
+                            variant="outline" 
+                            size="icon" 
+                            onClick={toggleDarkMode} 
+                            className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0"
+                        >
+                            <span className="text-sm sm:text-base">
+                                {appearance === 'dark' ? '☀️' : '🌙'}
+                            </span>
                         </Button>
                     </div>
                 </div>

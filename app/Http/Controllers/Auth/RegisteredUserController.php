@@ -41,6 +41,7 @@ class RegisteredUserController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'slug' => Str::slug($request->name) . '-' . Str::random(3),
+            'pin' => random_int(1000, 9999),
             'password' => Hash::make($request->password),
         ]);
 

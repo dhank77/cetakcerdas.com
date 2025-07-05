@@ -2,8 +2,12 @@ import { Button } from '@/components/ui/button';
 import { useAppearance } from '@/hooks/use-appearance';
 import { SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
+import { User } from '@/types';
 
-const Header = () => {
+const Header = ({ isLocked, user }: { isLocked: boolean, user: User | null }) => {
+
+    console.log(user);
+    
     const { auth } = usePage<SharedData>().props;
 
     const { appearance, updateAppearance } = useAppearance();
@@ -28,7 +32,7 @@ const Header = () => {
                     </Link>
                     <div className='flex gap-x-4 items-center'>
                         {
-                            !auth.user && (
+                            (!auth.user && isLocked) || user == null && (
                                 <div className='flex gap-x-2 items-center'>
                                     <Link href="/login">
                                         <Button variant="outline" size="lg">Masuk</Button>

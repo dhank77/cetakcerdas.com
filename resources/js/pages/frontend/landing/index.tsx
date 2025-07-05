@@ -1,17 +1,11 @@
+import Header from '@/components/frontend/analysis/header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAppearance } from '@/hooks/use-appearance';
 import { Link } from '@inertiajs/react';
-import { Calculator, CheckCircle, FileText, Moon, Shield, Star, Sun, TrendingUp, Users, Zap } from 'lucide-react';
+import { Calculator, CheckCircle, FileText, Shield, Star, TrendingUp, Users, Zap } from 'lucide-react';
 
 const Index = () => {
-    const { appearance, updateAppearance } = useAppearance();
-
-    const toggleDarkMode = () => {
-        updateAppearance(appearance === 'dark' ? 'light' : 'dark');
-    };
-
     const features = [
         {
             icon: <Calculator className="h-8 w-8 text-blue-600" />,
@@ -68,32 +62,7 @@ const Index = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-            {/* Header */}
-            <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900/80">
-                <div className="container mx-auto px-6 py-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">🖨️ CetakCerdas</div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={toggleDarkMode}
-                                className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
-                            >
-                                {appearance === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-                            </Button>
-                            <Link href="/login">
-                                <Button variant="outline">Masuk</Button>
-                            </Link>
-                            <Link href="/register">
-                                <Button>Daftar Gratis</Button>
-                            </Link>
-                        </div>
-                    </div>
-                </div>
-            </header>
+            <Header />
 
             {/* Hero Section */}
             <section className="px-6 py-20">
@@ -178,7 +147,7 @@ const Index = () => {
                                 <ul className="mb-8 space-y-3">
                                     <li className="flex items-center gap-3">
                                         <CheckCircle className="h-5 w-5 text-green-600" />
-                                        <span className="dark:text-gray-300">5 dokumen per hari</span>
+                                        <span className="dark:text-gray-300">Unlimited dokumen</span>
                                     </li>
                                     <li className="flex items-center gap-3">
                                         <CheckCircle className="h-5 w-5 text-green-600" />
@@ -187,6 +156,10 @@ const Index = () => {
                                     <li className="flex items-center gap-3">
                                         <CheckCircle className="h-5 w-5 text-green-600" />
                                         <span className="dark:text-gray-300">Kalkulasi harga otomatis</span>
+                                    </li>
+                                    <li className="flex items-center gap-3">
+                                        <CheckCircle className="h-5 w-5 text-green-600" />
+                                        <span className="dark:text-gray-300">Custom harga hitam putih dan warna</span>
                                     </li>
                                     <li className="flex items-center gap-3">
                                         <CheckCircle className="h-5 w-5 text-green-600" />
@@ -232,11 +205,19 @@ const Index = () => {
                                     </li>
                                     <li className="flex items-center gap-3">
                                         <CheckCircle className="h-5 w-5 text-green-600" />
-                                        <span className="dark:text-gray-300">Custom pricing template</span>
+                                        <span className="dark:text-gray-300">Custom harga keseluruhan</span>
+                                    </li>
+                                    <li className="flex items-center gap-3">
+                                        <CheckCircle className="h-5 w-5 text-green-600" />
+                                        <span className="dark:text-gray-300">Custom tingkat warna tiap halaman</span>
                                     </li>
                                     <li className="flex items-center gap-3">
                                         <CheckCircle className="h-5 w-5 text-green-600" />
                                         <span className="dark:text-gray-300">Priority support</span>
+                                    </li>
+                                    <li className="flex items-center gap-3">
+                                        <CheckCircle className="h-5 w-5 text-green-600" />
+                                        <span className="dark:text-gray-300">Dan masih banyak fitur lainnya</span>
                                     </li>
                                 </ul>
                                 <Button className="w-full bg-blue-600 hover:bg-blue-700">Upgrade ke Pro</Button>
@@ -290,7 +271,7 @@ const Index = () => {
                                 🚀 Mulai Gratis Sekarang
                             </Button>
                         </Link>
-                        <Link href='#'>
+                        <Link href="#">
                             <Button size="lg" className="bg-white px-8 py-4 text-lg text-blue-600 hover:bg-gray-100">
                                 💬 Hubungi Sales
                             </Button>

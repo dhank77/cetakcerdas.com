@@ -6,8 +6,6 @@ import { User } from '@/types';
 
 const Header = ({ isLocked, user }: { isLocked: boolean, user: User | null }) => {
 
-    console.log(user);
-    
     const { auth } = usePage<SharedData>().props;
 
     const { appearance, updateAppearance } = useAppearance();

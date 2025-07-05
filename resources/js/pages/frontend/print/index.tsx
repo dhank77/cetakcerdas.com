@@ -3,19 +3,18 @@ import DocumentPreview from '@/components/frontend/analysis/document-preview';
 import FileUpload from '@/components/frontend/analysis/file-upload';
 import Header from '@/components/frontend/analysis/header';
 import PriceAnalysis from '@/components/frontend/analysis/price-analysis';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { SharedData, User } from '@/types';
 import { AnalysisResult } from '@/types/analysis';
-import { usePage, router } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
-import { Lock, AlertTriangle, LogOut } from 'lucide-react';
+import { router, usePage } from '@inertiajs/react';
+import { AlertTriangle, Lock, LogOut } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
 
 const Index = ({ user }: { user: User | null }) => {
-
     const { auth } = usePage<SharedData>().props;
 
     const [file, setFile] = useState<File | null>(null);
@@ -24,7 +23,7 @@ const Index = ({ user }: { user: User | null }) => {
     const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-    
+
     // PIN Modal states
     const [showPinModal, setShowPinModal] = useState(false);
     const [pin, setPin] = useState('');
@@ -35,36 +34,162 @@ const Index = ({ user }: { user: User | null }) => {
 
     const isUserLoggedIn = auth && auth.user;
 
-    useEffect(() => {
-        setShowPinModal(true);
+    const isProduction = true;//import.meta.env.VITE_APP_ENV === 'production';
+
+    // Hash function for PIN storage with fallback
+    const hashPin = useCallback(async (pinValue: string, userSlug: string): Promise<string> => {
+        const input = pinValue + userSlug + 'cetak-cerdas-salt';
+        
+        // Check if Web Crypto API is available
+        if (window.crypto && window.crypto.subtle) {
+            try {
+                const encoder = new TextEncoder();
+                const data = encoder.encode(input);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            } catch (error) {
+                console.warn('Web Crypto API failed, using fallback hash:', error);
+            }
+        }
+        
+        // Fallback: Simple hash function (not cryptographically secure but sufficient for this use case)
+        let hash = 0;
+        for (let i = 0; i < input.length; i++) {
+            const char = input.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32-bit integer
+        }
+        
+        // Convert to positive hex string
+        return Math.abs(hash).toString(16).padStart(8, '0');
     }, []);
 
-    const handlePinSubmit = () => {
+    // Alternative: Even simpler fallback using btoa (Base64)
+    const hashPinSimple = useCallback((pinValue: string, userSlug: string): string => {
+        const input = pinValue + userSlug + 'cetak-cerdas-salt';
+        
+        // Check if Web Crypto API is available
+        if (window.crypto && window.crypto.subtle) {
+            // Use the async version above
+            return '';
+        }
+        
+        // Simple Base64 encoding as fallback
+        try {
+            return btoa(input).replace(/[+/=]/g, '').substring(0, 16);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        } catch (error) {
+            // Final fallback: simple string manipulation
+            let hash = '';
+            for (let i = 0; i < input.length; i++) {
+                hash += input.charCodeAt(i).toString(16);
+            }
+            return hash.substring(0, 16);
+        }
+    }, []);
+
+    // Check stored PIN hash with error handling
+    const checkStoredPin = useCallback(async (): Promise<boolean> => {
+        if (!user?.slug) return false;
+        
+        try {
+            const storedHash = localStorage.getItem(`pin_hash_${user.slug}`);
+            if (!storedHash) return false;
+            
+            const correctPin = user?.pin ?? 0;
+            const expectedHash = await hashPin(correctPin.toString(), user.slug);
+            
+            return storedHash === expectedHash;
+        } catch (error) {
+            console.error('Error checking stored PIN:', error);
+            // Clear invalid hash
+            localStorage.removeItem(`pin_hash_${user.slug}`);
+            return false;
+        }
+    }, [user?.slug, user?.pin, hashPin]);
+
+    // Store PIN hash with error handling
+    const storePinHash = useCallback(async (pinValue: string): Promise<void> => {
+        if (!user?.slug) return;
+        
+        try {
+            const hash = await hashPin(pinValue, user.slug);
+            localStorage.setItem(`pin_hash_${user.slug}`, hash);
+        } catch (error) {
+            console.error('Error storing PIN hash:', error);
+            // Fallback: store without hash (less secure but functional)
+            const simpleHash = hashPinSimple(pinValue, user.slug);
+            localStorage.setItem(`pin_hash_${user.slug}`, simpleHash);
+        }
+    }, [user?.slug, hashPin, hashPinSimple]);
+
+    useEffect(() => {
+        const initializePage = async () => {
+            // Skip PIN check if not production
+            if (!isProduction) {
+                setIsLocked(false);
+                return;
+            }
+
+            // Check if PIN is already stored
+            const hasValidPin = await checkStoredPin();
+            if (hasValidPin) {
+                setIsLocked(false);
+            } else {
+                setShowPinModal(true);
+            }
+        };
+
+        initializePage();
+    }, [checkStoredPin, isProduction]);
+
+    const handlePinSubmit = async () => {
         const correctPin = user?.pin ?? 0;
         const pinNumber = parseInt(pin);
-        
+
         if (pinNumber === correctPin) {
             setIsLocked(false);
             setShowPinModal(false);
             setPinError('');
-            setPin('');
             setPinAttempts(0);
-        } else {
-            setPinAttempts(prev => prev + 1);
-            setPinError(`PIN salah. Sisa percobaan: ${maxPinAttempts - pinAttempts - 1}`);
+
+            await storePinHash(pin);
             setPin('');
-            
-            if (pinAttempts + 1 >= maxPinAttempts) {
-                setPinError('Terlalu banyak percobaan yang salah. Halaman akan dimuat ulang.');
+        } else {
+            setPinAttempts((prev) => prev + 1);
+            const remainingAttempts = maxPinAttempts - pinAttempts - 1;
+
+            if (remainingAttempts > 0) {
+                setPinError(`PIN salah. Sisa percobaan: ${remainingAttempts}`);
+            } else {
+                setPinError('Terlalu banyak percobaan yang salah. Silakan coba lagi nanti.');
                 setTimeout(() => {
-                    window.location.reload();
-                }, 2000);
+                    setPinAttempts(0);
+                    setPinError('');
+                    setPin('');
+                }, 5000);
             }
+            setPin('');
         }
     };
 
     const handleLogout = () => {
+        if (user?.slug) {
+            localStorage.removeItem(`pin_hash_${user.slug}`);
+        }
         router.post(route('logout'));
+    };
+
+    const handleResetPin = () => {
+        if (user?.slug) {
+            localStorage.removeItem(`pin_hash_${user.slug}`);
+            setIsLocked(true);
+            setShowPinModal(true);
+            setPinAttempts(0);
+            setPinError('');
+            setPin('');
+        }
     };
 
     const handleFileSelect = (selectedFile: File) => {
@@ -131,9 +256,9 @@ const Index = ({ user }: { user: User | null }) => {
         setIsDragging(isDragging);
     };
 
-    if (isLocked) {
+    if (isLocked && isProduction) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 transition-colors duration-300 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+            <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 transition-colors duration-300 dark:from-gray-900 dark:to-gray-800">
                 <Dialog open={showPinModal} onOpenChange={() => {}}>
                     <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
                         <DialogHeader>
@@ -143,6 +268,9 @@ const Index = ({ user }: { user: User | null }) => {
                             </DialogTitle>
                             <DialogDescription>
                                 Halaman ini memerlukan PIN untuk diakses. Masukkan PIN yang benar untuk melanjutkan.
+                                {!isProduction && (
+                                    <span className="mt-2 block text-yellow-600 dark:text-yellow-400">Mode Development: PIN dinonaktifkan</span>
+                                )}
                             </DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4">
@@ -155,16 +283,14 @@ const Index = ({ user }: { user: User | null }) => {
                                     onKeyPress={(e) => e.key === 'Enter' && handlePinSubmit()}
                                     className="text-center text-lg tracking-widest"
                                     maxLength={6}
+                                    disabled={pinAttempts >= maxPinAttempts}
                                 />
-                                {pinError && (
-                                    <p className="text-sm text-red-600 dark:text-red-400">{pinError}</p>
+                                {pinError && <p className="text-sm text-red-600 dark:text-red-400">{pinError}</p>}
+                                {pinAttempts >= maxPinAttempts && (
+                                    <p className="text-sm text-blue-600 dark:text-blue-400">Menunggu 5 detik sebelum dapat mencoba lagi...</p>
                                 )}
                             </div>
-                            <Button 
-                                onClick={handlePinSubmit} 
-                                className="w-full"
-                                disabled={!pin || pinAttempts >= maxPinAttempts}
-                            >
+                            <Button onClick={handlePinSubmit} className="w-full" disabled={!pin || pinAttempts >= maxPinAttempts}>
                                 Buka Halaman
                             </Button>
                         </div>
@@ -176,43 +302,57 @@ const Index = ({ user }: { user: User | null }) => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 transition-colors duration-300 dark:from-gray-900 dark:to-gray-800">
-            {/* Alert for logged-in users */}
             {isUserLoggedIn && (
                 <div className="sticky top-0 z-50">
-                    <Alert className="rounded-none border-x-0 border-t-0 bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800">
+                    <Alert className="rounded-none border-x-0 border-t-0 border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20">
                         <AlertTriangle className="h-4 w-4" />
                         <AlertDescription className="flex items-center justify-between">
                             <span>
-                                <strong>Peringatan:</strong> Anda saat ini login sebagai {auth.user.name}. 
-                                Halaman ini untuk pelanggan. Segera logout dan gunakan PIN untuk halaman ini 
-                                agar dashboard Anda tidak dapat diakses dari halaman ini.
+                                <strong>Peringatan:</strong> Anda saat ini login sebagai {auth.user.name}. Halaman ini untuk pelanggan. Segera logout
+                                dan gunakan PIN untuk halaman ini agar dashboard Anda tidak dapat diakses dari halaman ini.
                             </span>
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={handleLogout}
-                                className="ml-4 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700"
-                            >
-                                <LogOut className="h-4 w-4 mr-2" />
-                                Logout
-                            </Button>
+                            <div className="flex gap-2">
+                                {isProduction && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleResetPin}
+                                        className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700"
+                                    >
+                                        Reset PIN
+                                    </Button>
+                                )}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleLogout}
+                                    className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700"
+                                >
+                                    <LogOut className="mr-2 h-4 w-4" />
+                                    Logout
+                                </Button>
+                            </div>
                         </AlertDescription>
                     </Alert>
                 </div>
             )}
-            
+
+            {!isProduction && (
+                <div className="border-b border-orange-200 bg-orange-100 px-4 py-2 dark:border-orange-800 dark:bg-orange-900/20">
+                    <p className="text-center text-sm text-orange-800 dark:text-orange-200">🚧 Mode Development: PIN Security dinonaktifkan</p>
+                </div>
+            )}
+
             <Header isLocked={isLocked} user={user} />
 
             <main className="container mx-auto max-w-6xl px-6 py-8">
                 <div className="mb-12 text-center">
                     <h2 className="text-4xl font-bold text-gray-900 dark:text-white">{user ? `${user.name}` : 'Analisis Dokumen Cetak'} </h2>
-                    {
-                        user && (
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                                Member Cetak Cerdas, Analisis dokumen cetak Anda akan disimpan di akun {user.name}
-                            </p>
-                        )
-                    }
+                    {user && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                            Member Cetak Cerdas, Analisis dokumen cetak Anda akan disimpan di akun {user.name}
+                        </p>
+                    )}
                 </div>
 
                 <div className="space-y-6">

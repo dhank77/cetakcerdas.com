@@ -111,7 +111,7 @@ const Index = () => {
                         dalam hitungan detik!
                     </p>
                     <div className="flex flex-col justify-center gap-4 sm:flex-row">
-                        <Link href="/app">
+                        <Link href={route('print')}>
                             <Button size="lg" className="px-8 py-4 text-lg">
                                 🚀 Coba Gratis Sekarang
                             </Button>
@@ -285,7 +285,7 @@ const Index = () => {
                     <h2 className="mb-6 text-4xl font-bold">Siap Meningkatkan Bisnis Percetakan Anda?</h2>
                     <p className="mb-8 text-xl opacity-90">Bergabung dengan ribuan UMKM percetakan yang sudah merasakan kemudahan CetakCerdas</p>
                     <div className="flex flex-col justify-center gap-4 sm:flex-row">
-                        <Link href="/app">
+                        <Link href={route('register')}>
                             <Button size="lg" className="bg-white px-8 py-4 text-lg text-blue-600 hover:bg-gray-100">
                                 🚀 Mulai Gratis Sekarang
                             </Button>

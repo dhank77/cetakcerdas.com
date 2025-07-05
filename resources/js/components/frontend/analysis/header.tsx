@@ -1,8 +1,11 @@
 import { Button } from '@/components/ui/button';
 import { useAppearance } from '@/hooks/use-appearance';
-import { Link } from '@inertiajs/react';
+import { SharedData } from '@/types';
+import { Link, usePage } from '@inertiajs/react';
 
 const Header = () => {
+    const { auth } = usePage<SharedData>().props;
+
     const { appearance, updateAppearance } = useAppearance();
 
     const toggleDarkMode = () => {
@@ -24,14 +27,18 @@ const Header = () => {
                         </div>
                     </Link>
                     <div className='flex gap-x-4 items-center'>
-                        <div className='flex gap-x-2 items-center'>
-                            <Link href="/login">
-                                <Button variant="outline" size="lg">Masuk</Button>
-                            </Link>
-                            <Link href="/register">
-                                <Button>Daftar Gratis</Button>
-                            </Link>
-                        </div>
+                        {
+                            !auth.user && (
+                                <div className='flex gap-x-2 items-center'>
+                                    <Link href="/login">
+                                        <Button variant="outline" size="lg">Masuk</Button>
+                                    </Link>
+                                    <Link href="/register">
+                                        <Button>Daftar Gratis</Button>
+                                    </Link>
+                                </div>
+                            )
+                        }
                         <Button variant="outline" size="icon" onClick={toggleDarkMode} className="gap-2">
                             <span>{appearance === 'dark' ? '☀️' : '🌙'}</span>
                         </Button>

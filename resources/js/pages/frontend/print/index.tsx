@@ -4,10 +4,11 @@ import FileUpload from '@/components/frontend/analysis/file-upload';
 import Header from '@/components/frontend/analysis/header';
 import PriceAnalysis from '@/components/frontend/analysis/price-analysis';
 import { Card, CardContent } from '@/components/ui/card';
+import { User } from '@/types';
 import { AnalysisResult } from '@/types/analysis';
 import { useState } from 'react';
 
-const Index = () => {
+const Index = ({ user }: { user: User | null }) => {
     const [file, setFile] = useState<File | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -85,7 +86,14 @@ const Index = () => {
 
             <main className="container mx-auto max-w-6xl px-6 py-8">
                 <div className="mb-12 text-center">
-                    <h2 className="mb-4 text-4xl font-bold text-gray-900 dark:text-white">Analisis Dokumen Cetak Anda</h2>
+                    <h2 className="text-4xl font-bold text-gray-900 dark:text-white">{user ? `${user.name}` : 'Analisis Dokumen Cetak'} </h2>
+                    {
+                        user && (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                Member Cetak Cerdas, Analisis dokumen cetak Anda akan disimpan di akun {user.name}
+                            </p>
+                        )
+                    }
                 </div>
 
                 <div className="space-y-6">

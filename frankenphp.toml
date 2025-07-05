@@ -1,0 +1,9 @@
+[server]
+bind = "0.0.0.0:443"
+document_root = "public"
+certificate = "/etc/ssl/certs/your-cert.pem"
+private_key = "/etc/ssl/private/your-key.pem"
+
+[[http.routes]]
+match = "/**"
+proxy = "http://127.0.0.1:8000"

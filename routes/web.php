@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('', LandingController::class)->name('home');
 
 Route::get('print/{slug?}', [PrintController::class, 'index'])->name('print');
+Route::post('print-order', [PrintController::class, 'order'])->name('print.order');
 Route::post('/calculate-price', CalculatePriceController::class)
     ->middleware('limit.page.access')
     ->name('calculate-price');

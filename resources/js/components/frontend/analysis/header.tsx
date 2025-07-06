@@ -3,10 +3,12 @@ import { useAppearance } from '@/hooks/use-appearance';
 import { SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import { User } from '@/types';
+import { toast } from 'sonner';
+import { Toaster } from '@/components/ui/sonner';
 
 const Header = ({ isLocked, user }: { isLocked?: boolean, user?: User | null }) => {
 
-    const { auth } = usePage<SharedData>().props;
+    const { auth, flash } = usePage<SharedData>().props;
 
     const { appearance, updateAppearance } = useAppearance();
 
@@ -14,6 +16,15 @@ const Header = ({ isLocked, user }: { isLocked?: boolean, user?: User | null }) 
         const newAppearance = appearance === 'dark' ? 'light' : 'dark';
         updateAppearance(newAppearance);
     };
+
+    if (flash.type && flash.messages) {
+        const message = Array.isArray(flash.messages) ? flash.messages.join('\n') : String(flash.messages);
+
+        const validTypes = ['success', 'error', 'warning', 'info'];
+        const toastType = validTypes.includes(flash.type) ? flash.type : 'info';
+
+        toast[toastType](message);
+    }
 
     return (
         <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900/80">
@@ -75,6 +86,8 @@ const Header = ({ isLocked, user }: { isLocked?: boolean, user?: User | null }) 
                     </div>
                 </div>
             </div>
+
+            <Toaster />
         </header>
     );
 };

@@ -39,6 +39,64 @@ class PrintController extends Controller
         ]);
     }
 
+    public function order(Request $request): RedirectResponse 
+    {
+        $request->validate([
+            'items' => 'required|string',
+            'url' => 'nullable|string'
+        ]);
+
+        if ($request->url) {
+            $url = explode('/', parse_url($request->url, PHP_URL_PATH));
+            if (!$url || count($url) < 3) {
+                return redirect()->back()->with([
+                    'type' => 'success',
+                    'messages' => 'Pesanan selesai',
+                ]);
+            }
+            $slug = $url[2];
+
+            $items = json_decode($request->items);
+            if (!isset($items[0])) {
+                return redirect()->back()->with([
+                    'type' => 'error',
+                    'messages' => 'Pesanan tidak valid',
+                ]);
+            }
+
+            $items = $items[0];
+
+            $user = User::where('slug', $slug)->first();
+            abort_if(!$user, 404);
+
+            $order = $user->orders()->create([
+                'full_log' => $request->items,
+
+                'timestamp_id' => $items->timestamp,
+                'price_bw' => $items->priceBw,
+                'price_color' => $items->priceColor,
+                'price_photo' => $items->pricePhoto,
+                'total_price' => $items->totalPrice,
+                'bw_pages' => $items->bwPages,
+                'color_pages' => $items->colorPages,
+                'photo_pages' => $items->photoPages,
+                'total_pages' => $items->totalPages,
+            ]);
+
+            if (!$order) {
+                return redirect()->back()->with([
+                    'type' => 'error',
+                    'messages' => 'Terjadi kesalahan',
+                ]);
+            }
+        }
+
+        return redirect()->back()->with([
+            'type' => 'success',
+            'messages' => 'Pesanan selesai',
+        ]);
+    }
+
     public function redirect(Request $request): RedirectResponse
     {
         $user = auth()->user();

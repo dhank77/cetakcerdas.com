@@ -19,9 +19,30 @@ class CalculatePriceController extends Controller
 
         $fastapi = config('fastapi.url');
         $file = $request->file('file');
-        
+        $user = $request->user();
+        if ($user) {
+            $setting = $user->setting;
+            $priceSettingColor = $setting->price_color;
+            $priceSettingPhoto = $setting->price_color;
+            $priceSettingBw = $setting->price_bw;
+
+            $colorThreshold = $setting->color_threshold;
+            $photoThreshold = $setting->photo_threshold;
+
+            $slug = $user->slug;
+        } else {
+            $priceSettingPhoto = 2000;
+            $priceSettingColor = 1000;
+            $priceSettingBw = 500;
+
+            $colorThreshold = 20;
+            $photoThreshold = 30;
+
+            $slug = 'testing';
+        }
+
         $fileName = time() . '_' . Str::random(10) . '.' . $file->getClientOriginalExtension();
-        $filePath = 'temp-uploads/' . $fileName;
+        $filePath = 'temp-uploads/' . $slug . '/' . $fileName;
         Storage::disk('public')->put($filePath, file_get_contents($file));
         $fullUrl = asset('storage/' . $filePath);
         
@@ -29,16 +50,23 @@ class CalculatePriceController extends Controller
             'file',
             file_get_contents($file),
             $file->getClientOriginalName()
-        )->post("$fastapi/analyze-document");
+        )->post("$fastapi/analyze-document", [
+            'color_threshold' => $colorThreshold,
+            'photo_threshold' => $photoThreshold,
+        ]);
 
         $responApi = $response->json();
-        $priceColor = ($responApi['color_pages'] + $responApi['photo_pages']) * 1000;
-        $priceBw = $responApi['bw_pages'] * 500;
+        $priceColor = ($responApi['color_pages']) * $priceSettingColor;
+        $priceBw = $responApi['bw_pages'] * $priceSettingBw;
+        $pricePhoto = ($responApi['photo_pages']) * $priceSettingPhoto;
+
+        $totalPrice = $priceColor + $priceBw + $pricePhoto;
 
         return response()->json([
             'price_color' => $priceColor,
             'price_bw' => $priceBw,
-            'total_price' => $priceColor + $priceBw,
+            'price_photo' => $pricePhoto,
+            'total_price' => $totalPrice,
             'file_url' => $fullUrl,
             'file_name' => $file->getClientOriginalName(),
             'file_type' => $file->getClientMimeType(),

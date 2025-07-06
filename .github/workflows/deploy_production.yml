@@ -29,6 +29,9 @@ jobs:
       - name: Install Node dependencies
         run: npm ci --legacy-peer-deps
 
+      - name: Generate Ziggy routes
+        run: php artisan ziggy:generate resources/js/ziggy.js
+
       - name: Build assets
         run: |
           npm run build

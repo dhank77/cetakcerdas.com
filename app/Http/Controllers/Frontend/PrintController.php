@@ -16,13 +16,26 @@ class PrintController extends Controller
     {
         $user = null;
 
+        $priceSettingPhoto = 2000;
+        $priceSettingColor = 1000;
+        $priceSettingBw = 500;
         if ($slug) {
             $user = User::where('slug', $slug)->first();
             abort_if(!$user, 404);
+
+            $setting = $user->setting;
+            if ($setting) {
+                $priceSettingColor = $setting->color_price;
+                $priceSettingPhoto = $setting->photo_price ?? $setting->color_price;
+                $priceSettingBw = $setting->bw_price;
+            }
         }
 
         return Inertia::render('frontend/print/index', [
             'user' => $user,
+            'priceSettingColor' => $priceSettingColor,
+            'priceSettingPhoto' => $priceSettingPhoto,
+            'priceSettingBw' => $priceSettingBw,
         ]);
     }
 

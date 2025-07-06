@@ -58,7 +58,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
     };
 
     return (
-        <Card className="lg:col-span-2 dark:border-gray-700 dark:bg-gray-800/50">
+        <Card className="lg:col-span-3 dark:border-gray-700 dark:bg-gray-800/50">
             <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">📁 Unggah Dokumen</CardTitle>
                 <CardDescription className="dark:text-gray-400">Seret dan lepas dokumen PDF atau Word Anda di sini</CardDescription>

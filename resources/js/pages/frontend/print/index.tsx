@@ -13,7 +13,14 @@ import { AlertTriangle, LogOut } from 'lucide-react';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import PinModal, { PinModalRef } from '@/components/frontend/landing/pin-modal';
 
-const Index = ({ user }: { user: User | null }) => {
+interface PrintProps {
+    user: User | null;
+    priceSettingColor: number;
+    priceSettingPhoto: number;
+    priceSettingBw: number;
+}
+
+const Index = ({ user, priceSettingColor, priceSettingPhoto, priceSettingBw }: PrintProps) => { 
     const { auth } = usePage<SharedData>().props;
     const pinModalRef = useRef<PinModalRef>(null);
 
@@ -194,7 +201,7 @@ const Index = ({ user }: { user: User | null }) => {
                 </div>
 
                 <div className="space-y-6">
-                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
                         <FileUpload
                             file={file}
                             isDragging={isDragging}
@@ -205,7 +212,7 @@ const Index = ({ user }: { user: User | null }) => {
                             onReset={handleReset}
                             onDragStateChange={handleDragStateChange}
                         />
-                        <PriceAnalysis analysisResult={analysisResult} />
+                        <PriceAnalysis analysisResult={analysisResult} priceSettingColor={priceSettingColor} priceSettingPhoto={priceSettingPhoto} priceSettingBw={priceSettingBw} />
                     </div>
 
                     {file && <DocumentPreview file={file} previewUrl={previewUrl} />}

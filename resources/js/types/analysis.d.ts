@@ -7,6 +7,7 @@ export interface PageDetail {
 export interface AnalysisResult {
     price_color: number;
     price_bw: number;
+    price_photo: number;
     total_price: number;
     total_pages: number;
     color_pages: number;
@@ -16,5 +17,8 @@ export interface AnalysisResult {
     pengaturan: {
         threshold_warna: string;
         threshold_foto: string;
+        price_setting_color?: number;
+        price_setting_bw?: number;
+        price_setting_photo?: number;
     };
 }

@@ -19,7 +19,7 @@ return new class extends Migration
             $table->float('color_price')->default(0);
             $table->float('photo_price')->default(0)->nullable();
             $table->float('threshold_color')->default(20)->nullable();
-            $table->float('threshold_photo')->default(50)->nullable();
+            $table->float('threshold_photo')->default(30)->nullable();
         });
     }
 

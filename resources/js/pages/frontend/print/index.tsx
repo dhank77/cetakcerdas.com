@@ -212,7 +212,14 @@ const Index = ({ user, priceSettingColor, priceSettingPhoto, priceSettingBw }: P
                             onReset={handleReset}
                             onDragStateChange={handleDragStateChange}
                         />
-                        <PriceAnalysis analysisResult={analysisResult} priceSettingColor={priceSettingColor} priceSettingPhoto={priceSettingPhoto} priceSettingBw={priceSettingBw} />
+                        <PriceAnalysis 
+                            analysisResult={analysisResult} 
+                            priceSettingColor={priceSettingColor} 
+                            priceSettingPhoto={priceSettingPhoto} 
+                            priceSettingBw={priceSettingBw}
+                            fileName={file?.name}
+                            previewUrl={previewUrl} // Tambahkan prop ini
+                        />
                     </div>
 
                     {file && <DocumentPreview file={file} previewUrl={previewUrl} />}

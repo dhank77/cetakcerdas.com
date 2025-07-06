@@ -5,6 +5,7 @@ export interface PageDetail {
 }
 
 export interface AnalysisResult {
+    file_url?: string;
     price_color: number;
     price_bw: number;
     price_photo: number;

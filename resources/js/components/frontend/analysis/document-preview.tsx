@@ -1,5 +1,4 @@
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import React from 'react';
 
 interface DocumentPreviewProps {
@@ -8,27 +7,6 @@ interface DocumentPreviewProps {
 }
 
 const DocumentPreview: React.FC<DocumentPreviewProps> = ({ previewUrl, file }) => {
-    const handlePrint = () => {
-        if (!previewUrl) return;
-
-        if (file?.type === 'application/pdf') {
-            const printWindow = window.open(previewUrl, '_blank');
-            if (printWindow) {
-                printWindow.onload = () => {
-                    printWindow.print();
-                };
-            }
-        } else {
-            window.open(previewUrl, '_blank');
-        }
-    };
-
-    const handleOpenInNewTab = () => {
-        if (previewUrl) {
-            window.open(previewUrl, '_blank');
-        }
-    };
-
     return (
         <>
             {previewUrl === 'docx-pending' ? (
@@ -55,19 +33,6 @@ const DocumentPreview: React.FC<DocumentPreviewProps> = ({ previewUrl, file }) =
                 </div>
             ) : !previewUrl ? null : (
                 <Card className="dark:border-gray-700 dark:bg-gray-800/50">
-                    <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
-                            <CardTitle className="text-gray-900 dark:text-white">📖 Pratinjau Dokumen</CardTitle>
-                            <div className="flex gap-2">
-                                <Button variant="outline" size="sm" onClick={handlePrint}>
-                                    🖨️ Cetak
-                                </Button>
-                                <Button variant="outline" size="sm" onClick={handleOpenInNewTab}>
-                                    🔍 Buka di Tab Baru
-                                </Button>
-                            </div>
-                        </div>
-                    </CardHeader>
                     <CardContent>
                         <div className="overflow-hidden rounded-lg border dark:border-gray-600">
                             <iframe src={previewUrl} className="h-[500px] w-full" title="Document Preview" allow="print" />

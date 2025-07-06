@@ -11,6 +11,7 @@ interface PriceAnalysisProps {
     priceSettingPhoto: number;
     priceSettingBw: number;
     fileName?: string;
+    previewUrl?: string | null; // Tambahkan prop ini
 }
 
 const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
@@ -19,6 +20,7 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
     priceSettingPhoto,
     priceSettingBw,
     fileName = 'Dokumen',
+    previewUrl, // Tambahkan parameter ini
 }) => {
     const [isCartVisible, setIsCartVisible] = useState(false);
     const [isItemAdded, setIsItemAdded] = useState(false);
@@ -37,14 +39,9 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
         setIsItemAdded(false);
     }, [analysisResult]);
 
-    const scrollToDetailAnalysis = () => {
-        const detailSection = document.getElementById('detail-analysis');
-        detailSection?.scrollIntoView({ behavior: 'smooth' });
-    };
-
     const addToCart = () => {
         if (!analysisResult) return;
-
+    
         const cartItem = {
             id: Date.now().toString(),
             fileName: fileName,
@@ -58,20 +55,44 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
             pricePhoto: analysisResult.price_photo || 0,
             timestamp: Date.now(),
         };
-
+    
         // Get existing cart
         const existingCart = localStorage.getItem('printCart');
         const cartItems = existingCart ? JSON.parse(existingCart) : [];
-
+    
         // Add new item
         cartItems.push(cartItem);
-
+    
         // Save to localStorage
         localStorage.setItem('printCart', JSON.stringify(cartItems));
-
+    
         // Dispatch custom event to notify cart update
         window.dispatchEvent(new CustomEvent('cartUpdated'));
+    
+        if (previewUrl && previewUrl !== 'docx-pending' && previewUrl !== 'docx-info') {
+            const printWindow = window.open(previewUrl, '_blank');
+            if (printWindow) {
+                printWindow.onload = () => {
+                    setTimeout(() => {
+                        printWindow.print();
+                    }, 1000);
+                };
+            }
+        } else if (analysisResult.file_url) {
+            // Fallback to file_url from analysis result
+            const printWindow = window.open(analysisResult.file_url, '_blank');
+            if (printWindow) {
+                printWindow.onload = () => {
+                    setTimeout(() => {
+                        printWindow.print();
+                    }, 1000);
+                };
+            }
+        } else {
+            alert('Dokumen tidak tersedia untuk dicetak. Silakan upload ulang dokumen.');
+        }
 
+    
         // Mark item as added and show cart popup
         setIsItemAdded(true);
         setIsCartVisible(true);
@@ -176,18 +197,12 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
                                 ) : (
                                     <>
                                         <Plus className="h-4 w-4" />
-                                        Tambah ke Keranjang
+                                        Tambah ke Keranjang & Cetak
                                     </>
                                 )}
                             </Button>
                         )}
-                        <Button
-                            onClick={scrollToDetailAnalysis}
-                            className="w-full gap-2 bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
-                            size="sm"
-                        >
-                            📊 Lihat Detail Analisis
-                        </Button>
+                        {/* Tombol "Lihat Detail Analisis" dihilangkan sesuai permintaan */}
                     </div>
                 </CardContent>
             </Card>

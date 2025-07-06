@@ -35,11 +35,11 @@ jobs:
       - name: Generate Application Key
         run: php artisan key:generate
 
-      - name: Tests
-        run: php artisan test
-
       - name: Generate Ziggy routes
         run: php artisan ziggy:generate resources/js/ziggy.js
+
+      - name: Tests
+        run: php artisan test
 
       - name: Install Node dependencies
         run: npm ci --legacy-peer-deps

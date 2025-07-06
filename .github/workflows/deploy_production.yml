@@ -51,6 +51,16 @@ jobs:
           username: ${{ secrets.PROD_USER }}
           key: ${{ secrets.PROD_PRIVATE_KEY }}
           passphrase: ${{ secrets.PROD_PASSPHRASE }}
+          source: "public/build"
+          target: "/var/www/cetakcerdas.com"
+
+      - name: Upload ssr to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          key: ${{ secrets.PROD_PRIVATE_KEY }}
+          passphrase: ${{ secrets.PROD_PASSPHRASE }}
           source: "bootstrap/ssr"
           target: "/var/www/cetakcerdas.com"
         
@@ -67,8 +77,8 @@ jobs:
           script: |
             cd /var/www/cetakcerdas.com
             
-            sudo chown -R www-data:www-data storage bootstrap/cache
-            sudo chmod -R 775 storage bootstrap/cache
+            chown -R www-data:www-data storage bootstrap/cache
+            chmod -R 775 storage bootstrap/cache
             git pull origin main
             
             composer install --no-dev --optimize-autoloader

@@ -65,7 +65,7 @@ const mainNavItems: NavItem[] = [
 const footerNavItems: NavItem[] = [
     {
         title: 'Pengaturan',
-        href: '/settings',
+        href: route('setting'),
         icon: Settings,
     },
     {

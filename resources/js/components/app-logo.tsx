@@ -7,8 +7,8 @@ export default function AppLogo() {
                 <Printer className="size-5 text-white" />
             </div>
             <div className="ml-3 grid flex-1 text-left text-sm">
-                <span className="mb-0.5 truncate leading-tight font-bold text-gray-900 dark:text-white">CetakCerdas</span>
-                <span className="truncate text-xs text-gray-500 dark:text-gray-400">Smart Printing</span>
+                <span className="mb-0.5 truncate leading-tight font-bold text-gray-900 dark:text-white">CetakCerdas.Com</span>
+                <span className="truncate text-xs text-gray-500 dark:text-gray-400">Analisis Doc Berbasis AI</span>
             </div>
         </>
     );

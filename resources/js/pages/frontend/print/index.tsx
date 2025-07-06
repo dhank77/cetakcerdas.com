@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { SharedData, User } from '@/types';
 import { AnalysisResult } from '@/types/analysis';
-import { router, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { AlertTriangle, LogOut } from 'lucide-react';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import PinModal, { PinModalRef } from '@/components/frontend/landing/pin-modal';
@@ -181,6 +181,7 @@ const Index = ({ user }: { user: User | null }) => {
             )}
 
             <Header isLocked={isLocked} user={user} />
+            <Head title='Halaman Print' />
 
             <main className="container mx-auto max-w-6xl px-6 py-8">
                 <div className="mb-12 text-center">

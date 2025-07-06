@@ -42,7 +42,7 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Build assets
-        run: npm run build:ssr
+        run: npm run build
       
       - name: Upload build to server
         uses: appleboy/scp-action@v0.1.7
@@ -54,15 +54,15 @@ jobs:
           source: "public/build"
           target: "/var/www/cetakcerdas.com"
 
-      - name: Upload ssr to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.PROD_HOST }}
-          username: ${{ secrets.PROD_USER }}
-          key: ${{ secrets.PROD_PRIVATE_KEY }}
-          passphrase: ${{ secrets.PROD_PASSPHRASE }}
-          source: "bootstrap/ssr"
-          target: "/var/www/cetakcerdas.com"
+      # - name: Upload ssr to server
+      #   uses: appleboy/scp-action@v0.1.7
+      #   with:
+      #     host: ${{ secrets.PROD_HOST }}
+      #     username: ${{ secrets.PROD_USER }}
+      #     key: ${{ secrets.PROD_PRIVATE_KEY }}
+      #     passphrase: ${{ secrets.PROD_PASSPHRASE }}
+      #     source: "bootstrap/ssr"
+      #     target: "/var/www/cetakcerdas.com"
         
       - name: Tests
         run: php artisan test

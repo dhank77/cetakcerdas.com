@@ -222,7 +222,17 @@ const Index = () => {
                                         <span className="dark:text-gray-300">Dan masih banyak fitur lainnya</span>
                                     </li>
                                 </ul>
-                                <Button className="w-full bg-blue-600 hover:bg-blue-700">Upgrade ke Pro</Button>
+                                <Button
+                                    className="w-full bg-blue-600 hover:bg-blue-700"
+                                    onClick={() => {
+                                        return window.open(
+                                            'https://wa.me/6282396151291?text=Halo%20Admin%20CetakCerdas%20%0A%0AI%20ingin%20upgrade%20ke%20plan%20Pro%20%0A%0A',
+                                            '_blank',
+                                        );
+                                    }}
+                                >
+                                    Upgrade ke Pro
+                                </Button>
                             </CardContent>
                         </Card>
                     </div>
@@ -274,7 +284,16 @@ const Index = () => {
                             </Button>
                         </Link>
                         <Link href="#">
-                            <Button size="lg" className="bg-white px-8 py-4 text-lg text-blue-600 hover:bg-gray-100">
+                            <Button
+                                size="lg"
+                                className="bg-white px-8 py-4 text-lg text-blue-600 hover:bg-gray-100"
+                                onClick={() => {
+                                    return window.open(
+                                        'https://wa.me/6282396151291?text=Halo%20Admin%20CetakCerdas%20%0A%0AI%20ingin%20upgrade%20ke%20plan%20Pro%20%0A%0A',
+                                        '_blank',
+                                    );
+                                }}
+                            >
                                 💬 Hubungi Sales
                             </Button>
                         </Link>

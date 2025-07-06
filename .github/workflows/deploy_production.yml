@@ -42,15 +42,8 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Build assets
-        run: |
-          npm run build
-          npm run build:ssr
+        run: npm run build:ssr
       
-      - name: Debug built files
-        run: |
-          ls -lah public/build
-          ls -lah bootstrap/ssr
-
       - name: Upload build to server
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -58,9 +51,7 @@ jobs:
           username: ${{ secrets.PROD_USER }}
           key: ${{ secrets.PROD_PRIVATE_KEY }}
           passphrase: ${{ secrets.PROD_PASSPHRASE }}
-          source: |
-            ./public/build
-            ./bootstrap/ssr
+          source: "bootstrap/ssr"
           target: "/var/www/cetakcerdas.com"
         
       - name: Tests

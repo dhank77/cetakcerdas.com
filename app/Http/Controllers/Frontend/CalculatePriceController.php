@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,12 +30,9 @@ class CalculatePriceController extends Controller
         $colorThreshold = 20;
         $photoThreshold = 30;
 
-        $slug = 'testing';
+        $slug = $request->slug ?? 'testing';
 
-        $user = $request->user();
-        if ($user) {
-            $slug = $user->slug;
-        }
+        $user = User::where('slug', $slug)->first();
 
         if ($user && $user->setting) {
             $setting = $user->setting;

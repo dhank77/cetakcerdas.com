@@ -45,6 +45,11 @@ jobs:
         run: |
           npm run build
           npm run build:ssr
+      
+      - name: Debug built files
+        run: |
+          ls -lah public/build
+          ls -lah bootstrap/ssr
 
       - name: Upload build to server
         uses: appleboy/scp-action@v0.1.7
@@ -54,8 +59,8 @@ jobs:
           key: ${{ secrets.PROD_PRIVATE_KEY }}
           passphrase: ${{ secrets.PROD_PASSPHRASE }}
           source: |
-            public/build/**
-            bootstrap/ssr/**
+            ./public/build
+            ./bootstrap/ssr
           target: "/var/www/cetakcerdas.com"
         
       - name: Tests

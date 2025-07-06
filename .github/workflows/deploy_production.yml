@@ -77,6 +77,9 @@ jobs:
           script: |
             cd /var/www/cetakcerdas.com
             
+            chown -R $(whoami):$(whoami) storage bootstrap/cache
+            chmod -R 775 storage bootstrap/cache
+
             git pull origin main
             
             composer install --no-dev --optimize-autoloader

@@ -76,18 +76,12 @@ jobs:
           passphrase: ${{ secrets.PROD_PASSPHRASE }}
           script: |
             cd /var/www/cetakcerdas.com
-            
-            # chown -R $(whoami):$(whoami) storage bootstrap/cache
-            # chmod -R 775 storage bootstrap/cache
-
+            sudo chown -R $(whoami):$(whoami) storage bootstrap/cache .git
+            sudo chmod -R 775 storage bootstrap/cache
             git pull origin main
-            
             composer install --no-dev --optimize-autoloader
-            
             php artisan config:cache
             php artisan route:cache
             php artisan view:cache
             php artisan optimize
-
-            # pm2 reload ecosystem.config.js --only ssr
 

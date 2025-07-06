@@ -100,8 +100,8 @@ const CartPopup: React.FC<CartPopupProps> = ({ isVisible, onClose, onFinish }) =
                     handleFinish();
                     console.log('Cart auto closed');
                 },
-                1 * 60 * 1000,
-            ); // 1 minute
+                3 * 60 * 1000,
+            ); // 3 minute
         }
 
         return () => {

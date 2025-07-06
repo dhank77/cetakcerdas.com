@@ -48,7 +48,7 @@ class PrintController extends Controller
 
         if ($request->url) {
             $url = explode('/', parse_url($request->url, PHP_URL_PATH));
-            if (!$url || count($url) < 3) {
+            if (!$url || count($url) < 3 || $url['2'] === "") {
                 return redirect()->back()->with([
                     'type' => 'success',
                     'messages' => 'Pesanan selesai',

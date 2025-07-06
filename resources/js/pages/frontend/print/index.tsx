@@ -218,7 +218,7 @@ const Index = ({ user, priceSettingColor, priceSettingPhoto, priceSettingBw }: P
                             priceSettingPhoto={priceSettingPhoto} 
                             priceSettingBw={priceSettingBw}
                             fileName={file?.name}
-                            previewUrl={previewUrl} // Tambahkan prop ini
+                            previewUrl={previewUrl}
                         />
                     </div>
 

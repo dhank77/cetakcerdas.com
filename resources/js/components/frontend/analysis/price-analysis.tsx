@@ -20,7 +20,7 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
     priceSettingPhoto,
     priceSettingBw,
     fileName = 'Dokumen',
-    previewUrl, // Tambahkan parameter ini
+    previewUrl,
 }) => {
     const [isCartVisible, setIsCartVisible] = useState(false);
     const [isItemAdded, setIsItemAdded] = useState(false);

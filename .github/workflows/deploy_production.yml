@@ -26,22 +26,22 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
-      - name: Install Node dependencies
-        run: npm ci --legacy-peer-deps
-
-      - name: Generate Ziggy routes
-        run: php artisan ziggy:generate resources/js/ziggy.js
-
-      - name: Build assets
-        run: |
-          npm run build
-          npm run build:ssr
-
       - name: Install Dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
       - name: Tests
         run: php artisan test
+
+      - name: Generate Ziggy routes
+        run: php artisan ziggy:generate resources/js/ziggy.js
+
+      - name: Install Node dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Build assets
+        run: |
+          npm run build
+          npm run build:ssr
 
       - name: Upload build to server
         uses: appleboy/scp-action@v0.1.7

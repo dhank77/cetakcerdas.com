@@ -42,9 +42,7 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Build assets
-        run: |
-          npm run build
-          npm run build:ssr
+        run: npm run build:ssr
         
       - name: Tests
         run: php artisan test

@@ -89,5 +89,5 @@ jobs:
             php artisan view:cache
             php artisan optimize
 
-            pm2 reload ecosystem.config.js --only ssr
+            # pm2 reload ecosystem.config.js --only ssr
 

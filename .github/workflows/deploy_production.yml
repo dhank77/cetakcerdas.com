@@ -30,16 +30,12 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Build assets
-        run: npm run build
+        run: |
+          npm run build
+          npm run build:ssr
 
       - name: Install Dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
-
-      - name: Copy Environment File
-        run: cp .env.example .env
-
-      - name: Generate Application Key
-        run: php artisan key:generate
 
       - name: Tests
         run: php artisan test
@@ -51,7 +47,9 @@ jobs:
           username: ${{ secrets.PROD_USER }}
           key: ${{ secrets.PROD_PRIVATE_KEY }}
           passphrase: ${{ secrets.PROD_PASSPHRASE }}
-          source: "public/build"
+          source: |
+            public/build
+            bootstrap/ssr
           target: "/var/www/cetakcerdas.com"
 
       - name: SSH and deploy backend
@@ -63,13 +61,17 @@ jobs:
           passphrase: ${{ secrets.PROD_PASSPHRASE }}
           script: |
             cd /var/www/cetakcerdas.com
+            
             sudo chown -R www-data:www-data storage bootstrap/cache
             sudo chmod -R 775 storage bootstrap/cache
             git pull origin main
+            
             composer install --no-dev --optimize-autoloader
+            
             php artisan config:cache
             php artisan route:cache
+            php artisan view:cache
             php artisan optimize
-            # Don't run migrate and db:seed in production
-            # php artisan migrate --force
-            # php artisan db:seed
+
+            pm2 reload ecosystem.config.js --only ssr
+

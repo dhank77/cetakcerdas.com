@@ -35,16 +35,10 @@ class LimitPageAccess
         $userAgent = substr($request->userAgent(), 0, 255);
 
         $visit = PageVisit::firstOrCreate(
-            [
-                'visitor_id' => $visitorId,
-                'ip_address' => $ip,
-                'page' => $page,
-            ],
-            [
-                'user_agent' => $userAgent,
-                'visit_count' => 0,
-            ]
+            ['ip_address' => $ip, 'page' => $page],
+            ['visitor_id' => $visitorId, 'user_agent' => $userAgent, 'visit_count' => 0]
         );
+
 
         if ($visit->visit_count >= 5) {
             abort(429, 'Anda telah mencapai batas akses halaman ini.');

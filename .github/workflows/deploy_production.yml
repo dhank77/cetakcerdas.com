@@ -54,8 +54,8 @@ jobs:
           key: ${{ secrets.PROD_PRIVATE_KEY }}
           passphrase: ${{ secrets.PROD_PASSPHRASE }}
           source: |
-            public/build
-            bootstrap/ssr
+            public/build/**
+            bootstrap/ssr/**
           target: "/var/www/cetakcerdas.com"
         
       - name: Tests

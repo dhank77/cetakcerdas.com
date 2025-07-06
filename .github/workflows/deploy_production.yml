@@ -42,10 +42,9 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Build assets
-        run: npm run build:ssr
-        
-      - name: Tests
-        run: php artisan test
+        run: |
+          npm run build
+          npm run build:ssr
 
       - name: Upload build to server
         uses: appleboy/scp-action@v0.1.7
@@ -58,6 +57,9 @@ jobs:
             public/build
             bootstrap/ssr
           target: "/var/www/cetakcerdas.com"
+        
+      - name: Tests
+        run: php artisan test
 
       - name: SSH and deploy backend
         uses: appleboy/ssh-action@v1.0.0

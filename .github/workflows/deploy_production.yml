@@ -63,6 +63,8 @@ jobs:
           passphrase: ${{ secrets.PROD_PASSPHRASE }}
           script: |
             cd /var/www/cetakcerdas.com
+            sudo chown -R www-data:www-data storage bootstrap/cache
+            sudo chmod -R 775 storage bootstrap/cache
             git pull origin main
             composer install --no-dev --optimize-autoloader
             php artisan config:cache

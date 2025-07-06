@@ -192,7 +192,7 @@ const Index = ({ user }: { user: User | null }) => {
         }
     };
 
-    const handleFileSelect = (selectedFile: File) => {
+    const handleFileSelect = async (selectedFile: File) => {
         setFile(selectedFile);
         setError(null);
         setAnalysisResult(null);
@@ -204,8 +204,7 @@ const Index = ({ user }: { user: User | null }) => {
             selectedFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
             selectedFile.name.toLowerCase().endsWith('.docx')
         ) {
-            const url = URL.createObjectURL(selectedFile);
-            setPreviewUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`);
+            setPreviewUrl('docx-pending');
         } else {
             setPreviewUrl(null);
         }
@@ -220,6 +219,7 @@ const Index = ({ user }: { user: User | null }) => {
         try {
             const formData = new FormData();
             formData.append('file', file);
+            formData.append('slug', user?.slug ?? '');
 
             const response = await fetch(route('calculate-price'), {
                 method: 'POST',
@@ -229,12 +229,23 @@ const Index = ({ user }: { user: User | null }) => {
                 body: formData,
             });
 
+            if (response.status === 429 && (user?.slug ?? '') === '') {
+                throw new Error('Terlalu banyak percobaan. Silakan daftar gratis tanpa limit.');
+            }
             if (!response.ok) {
-                throw new Error('Failed to analyze document');
+                throw new Error('Terjadi kesalahan');
             }
 
             const result = await response.json();
             setAnalysisResult(result);
+            
+            if (result.file_url && (
+                file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+                file.name.toLowerCase().endsWith('.docx')
+            )) {
+                const officeUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(result.file_url)}`;
+                setPreviewUrl(officeUrl);
+            }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An error occurred');
         } finally {

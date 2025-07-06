@@ -124,9 +124,10 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
                 {error && (
                     <Alert className="mt-3 border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20">
-                        <div className="text-red-800 dark:text-red-400">
-                            <strong>Kesalahan:</strong> {error}
-                        </div>
+                        <span></span> 
+                        <span className="text-red-800 dark:text-red-400">
+                            {error}
+                        </span>
                     </Alert>
                 )}
             </CardContent>

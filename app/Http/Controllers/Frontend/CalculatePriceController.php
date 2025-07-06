@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class CalculatePriceController extends Controller
 {
@@ -16,8 +18,13 @@ class CalculatePriceController extends Controller
         ]);
 
         $fastapi = config('fastapi.url');
-
         $file = $request->file('file');
+        
+        $fileName = time() . '_' . Str::random(10) . '.' . $file->getClientOriginalExtension();
+        $filePath = 'temp-uploads/' . $fileName;
+        Storage::disk('public')->put($filePath, file_get_contents($file));
+        $fullUrl = asset('storage/' . $filePath);
+        
         $response = Http::attach(
             'file',
             file_get_contents($file),
@@ -32,6 +39,9 @@ class CalculatePriceController extends Controller
             'price_color' => $priceColor,
             'price_bw' => $priceBw,
             'total_price' => $priceColor + $priceBw,
+            'file_url' => $fullUrl,
+            'file_name' => $file->getClientOriginalName(),
+            'file_type' => $file->getClientMimeType(),
             ...$responApi,
         ]);
     }

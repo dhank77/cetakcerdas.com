@@ -3,20 +3,7 @@ import { NavMain } from '@/components/nav-main';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import {
-    BarChart3,
-    Calendar,
-    CreditCard,
-    FileText,
-    HelpCircle,
-    LayoutGrid,
-    MessageSquare,
-    Package,
-    Printer,
-    Settings,
-    Truck,
-    Users,
-} from 'lucide-react';
+import { BarChart3, CreditCard, FileText, HelpCircle, LayoutGrid, MessageSquare, Printer, Settings, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
@@ -31,14 +18,14 @@ const mainNavItems: NavItem[] = [
         icon: Printer,
     },
     {
-        title: 'Pesanan',
+        title: 'Riwayat Print',
         href: '/orders',
         icon: FileText,
     },
     {
-        title: 'Inventori',
-        href: '/inventory',
-        icon: Package,
+        title: 'Pesanan',
+        href: '/orders',
+        icon: FileText,
     },
     {
         title: 'Pelanggan',
@@ -50,22 +37,12 @@ const mainNavItems: NavItem[] = [
         href: '/reports',
         icon: BarChart3,
     },
-    {
-        title: 'Pengiriman',
-        href: '/shipping',
-        icon: Truck,
-    },
-    {
-        title: 'Jadwal Produksi',
-        href: '/schedule',
-        icon: Calendar,
-    },
 ];
 
 const footerNavItems: NavItem[] = [
     {
         title: 'Pengaturan',
-        href: route('setting'),
+        href: '/setting',
         icon: Settings,
     },
     {
@@ -79,7 +56,7 @@ const footerNavItems: NavItem[] = [
         icon: HelpCircle,
     },
     {
-        title: 'Dukungan',
+        title: 'Testimoni',
         href: '/support',
         icon: MessageSquare,
     },

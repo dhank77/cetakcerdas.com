@@ -116,12 +116,12 @@ const Index = ({ setting }: Props) => {
                         </div>
 
                         <div className="border-t pt-6">
-                            <h3 className="mb-4 text-lg font-medium">Pengaturan Threshold</h3>
+                            <h3 className="mb-4 text-lg font-medium">Pengaturan Tingkat Ketelitian</h3>
                             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                 {/* Threshold Warna - Pro Only */}
                                 <div className="space-y-2">
                                     <Label htmlFor="threshold_color" className="flex items-center gap-2">
-                                        Threshold Warna (%)
+                                        Ketelitian Warna (%)
                                         {!isProMember && <Lock className="h-4 w-4 text-gray-400" />}
                                     </Label>
                                     <Input
@@ -142,7 +142,7 @@ const Index = ({ setting }: Props) => {
                                 {/* Threshold Foto - Pro Only */}
                                 <div className="space-y-2">
                                     <Label htmlFor="threshold_photo" className="flex items-center gap-2">
-                                        Threshold Foto (%)
+                                        Ketelitian Foto (%)
                                         {!isProMember && <Lock className="h-4 w-4 text-gray-400" />}
                                     </Label>
                                     <Input

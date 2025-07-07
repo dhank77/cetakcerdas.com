@@ -3,7 +3,7 @@ import { NavMain } from '@/components/nav-main';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import { BarChart3, CreditCard, FileText, HelpCircle, LayoutGrid, MessageSquare, Printer, Settings, Users } from 'lucide-react';
+import { BarChart3, CreditCard, FileText, HelpCircle, LayoutGrid, ListOrderedIcon, MessageSquare, MessageSquareShareIcon, Printer, Settings, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
@@ -18,9 +18,14 @@ const mainNavItems: NavItem[] = [
         icon: Printer,
     },
     {
+        title: 'Kiriman Pelanggan',
+        href: '/bookings',
+        icon: MessageSquareShareIcon,
+    },
+    {
         title: 'Riwayat Print',
-        href: '/orders',
-        icon: FileText,
+        href: '/history',
+        icon: ListOrderedIcon,
     },
     {
         title: 'Pesanan',
@@ -28,8 +33,8 @@ const mainNavItems: NavItem[] = [
         icon: FileText,
     },
     {
-        title: 'Pelanggan',
-        href: '/customers',
+        title: 'Member',
+        href: '/members',
         icon: Users,
     },
     {
@@ -46,7 +51,7 @@ const footerNavItems: NavItem[] = [
         icon: Settings,
     },
     {
-        title: 'Billing',
+        title: 'Tagihan',
         href: '/billing',
         icon: CreditCard,
     },
@@ -57,7 +62,7 @@ const footerNavItems: NavItem[] = [
     },
     {
         title: 'Testimoni',
-        href: '/support',
+        href: '/testimonials',
         icon: MessageSquare,
     },
 ];

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Frontend\BookingController;
 use App\Http\Controllers\Frontend\CalculatePriceController;
 use App\Http\Controllers\Frontend\LandingController;
 use App\Http\Controllers\Frontend\PrintController;
@@ -9,6 +10,10 @@ Route::get('', LandingController::class)->name('home');
 
 Route::get('print/{slug?}', [PrintController::class, 'index'])->name('print');
 Route::post('print-order', [PrintController::class, 'order'])->name('print.order');
+
+Route::get('booking/{slug}', [BookingController::class, 'index'])->name('booking');
+Route::post('booking/{slug}/upload', [BookingController::class, 'store'])->name('booking.store');
+
 Route::post('/calculate-price', CalculatePriceController::class)
     ->middleware('limit.page.access')
     ->name('calculate-price');

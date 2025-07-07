@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
-import React, { useMemo } from 'react';
+import React from 'react';
 import { 
     Calendar, 
     CalendarDays, 
@@ -14,22 +14,43 @@ import {
     PieChart
 } from 'lucide-react';
 
-// Define Order interface based on database migration
-interface Order {
+// Define interfaces
+interface DashboardStats {
+    today: {
+        count: number;
+        revenue: number;
+        pages: number;
+        customers: number;
+    };
+    month: {
+        count: number;
+        revenue: number;
+        pages: number;
+        customers: number;
+    };
+    year: {
+        count: number;
+        revenue: number;
+        pages: number;
+        customers: number;
+    };
+    breakdown: {
+        bwPages: number;
+        colorPages: number;
+        photoPages: number;
+    };
+}
+
+interface RecentOrder {
     id: number;
-    user_id: number;
-    price_bw: number;
-    price_color: number;
-    price_photo: number;
     total_price: number;
-    bw_pages: number;
-    color_pages: number;
-    photo_pages: number;
     total_pages: number;
-    timestamp_id: string;
-    full_log: string;
     created_at: string;
-    updated_at: string;
+}
+
+interface DashboardProps {
+    stats: DashboardStats;
+    recentOrders: RecentOrder[];
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -39,79 +60,10 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-const Dashboard = ({ orders = [] }: { orders?: Order[] }) => {
-    // Ensure orders is always an array - move this outside useMemo
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    const safeOrders = orders || [];
-    
-    // Calculate statistics
-    const stats = useMemo(() => {
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const thisYear = new Date(now.getFullYear(), 0, 1);
-
-        const todayOrders = safeOrders.filter(order => new Date(order.created_at) >= today);
-        const monthOrders = safeOrders.filter(order => new Date(order.created_at) >= thisMonth);
-        const yearOrders = safeOrders.filter(order => new Date(order.created_at) >= thisYear);
-
-        // Helper function to safely calculate sums with validation
-        const safeSum = (orders: Order[], field: keyof Order): number => {
-            return orders.reduce((sum, order) => {
-                const value = Number(order[field]) || 0;
-                // Validate that the value is reasonable (not too large)
-                if (value > 999999999999) { // Max 999 billion
-                    console.warn(`Suspicious large value detected for ${String(field)}:`, value);
-                    return sum;
-                }
-                return sum + value;
-            }, 0);
-        };
-
-        // Helper function to safely count pages
-        const safePageSum = (orders: Order[]): number => {
-            return orders.reduce((sum, order) => {
-                const totalPages = Number(order.total_pages) || 0;
-                // Validate reasonable page count (max 10,000 pages per order)
-                if (totalPages > 10000) {
-                    console.warn('Suspicious large page count detected:', totalPages);
-                    return sum;
-                }
-                return sum + totalPages;
-            }, 0);
-        };
-
-        return {
-            today: {
-                count: todayOrders.length,
-                revenue: safeSum(todayOrders, 'total_price'),
-                pages: safePageSum(todayOrders),
-                customers: new Set(todayOrders.map(order => order.user_id)).size
-            },
-            month: {
-                count: monthOrders.length,
-                revenue: safeSum(monthOrders, 'total_price'),
-                pages: safePageSum(monthOrders),
-                customers: new Set(monthOrders.map(order => order.user_id)).size
-            },
-            year: {
-                count: yearOrders.length,
-                revenue: safeSum(yearOrders, 'total_price'),
-                pages: safePageSum(yearOrders),
-                customers: new Set(yearOrders.map(order => order.user_id)).size
-            },
-            breakdown: {
-                bwPages: safeSum(safeOrders, 'bw_pages'),
-                colorPages: safeSum(safeOrders, 'color_pages'),
-                photoPages: safeSum(safeOrders, 'photo_pages')
-            }
-        };
-    }, [safeOrders]);
-
-    // Improved currency formatter with validation
+const Dashboard = ({ stats, recentOrders = [] }: DashboardProps) => {
+    // Safe currency formatter
     const formatCurrency = (amount: number) => {
-        // Validate amount is reasonable
-        if (!amount || amount < 0 || amount > 999999999999) {
+        if (!amount || amount < 0) {
             return 'Rp 0';
         }
         
@@ -128,9 +80,9 @@ const Dashboard = ({ orders = [] }: { orders?: Order[] }) => {
         }
     };
 
-    // Safe number formatter for pages
+    // Safe number formatter
     const formatNumber = (num: number) => {
-        if (!num || num < 0 || num > 999999999) {
+        if (!num || num < 0) {
             return '0';
         }
         return num.toLocaleString('id-ID');
@@ -159,7 +111,7 @@ const Dashboard = ({ orders = [] }: { orders?: Order[] }) => {
                             <FileText className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{stats.today.count}</div>
+                            <div className="text-2xl font-bold">{formatNumber(stats.today.count)}</div>
                             <p className="text-xs text-muted-foreground">
                                 Order hari ini
                             </p>
@@ -195,7 +147,7 @@ const Dashboard = ({ orders = [] }: { orders?: Order[] }) => {
                             <Users className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{stats.today.customers}</div>
+                            <div className="text-2xl font-bold">{formatNumber(stats.today.customers)}</div>
                             <p className="text-xs text-muted-foreground">
                                 Pelanggan unik hari ini
                             </p>
@@ -217,7 +169,7 @@ const Dashboard = ({ orders = [] }: { orders?: Order[] }) => {
                             <FileText className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{stats.month.count}</div>
+                            <div className="text-2xl font-bold">{formatNumber(stats.month.count)}</div>
                             <p className="text-xs text-muted-foreground">
                                 Order bulan ini
                             </p>
@@ -253,7 +205,7 @@ const Dashboard = ({ orders = [] }: { orders?: Order[] }) => {
                             <Users className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{stats.month.customers}</div>
+                            <div className="text-2xl font-bold">{formatNumber(stats.month.customers)}</div>
                             <p className="text-xs text-muted-foreground">
                                 Pelanggan unik bulan ini
                             </p>
@@ -275,7 +227,7 @@ const Dashboard = ({ orders = [] }: { orders?: Order[] }) => {
                             <FileText className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{stats.year.count}</div>
+                            <div className="text-2xl font-bold">{formatNumber(stats.year.count)}</div>
                             <p className="text-xs text-muted-foreground">
                                 Order tahun ini
                             </p>
@@ -311,7 +263,7 @@ const Dashboard = ({ orders = [] }: { orders?: Order[] }) => {
                             <Users className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{stats.year.customers}</div>
+                            <div className="text-2xl font-bold">{formatNumber(stats.year.customers)}</div>
                             <p className="text-xs text-muted-foreground">
                                 Pelanggan unik tahun ini
                             </p>
@@ -374,7 +326,7 @@ const Dashboard = ({ orders = [] }: { orders?: Order[] }) => {
 
             {/* Recent Orders Table */}
             <div className="space-y-4">
-                <h2 className="text-xl font-semibold">Order Terbaru</h2>
+                <h2 className="text-xl font-semibold">Order Terbaru (5 Terakhir)</h2>
                 <Card>
                     <CardContent className="p-0">
                         <div className="overflow-x-auto">
@@ -389,7 +341,7 @@ const Dashboard = ({ orders = [] }: { orders?: Order[] }) => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {safeOrders.slice(0, 10).map((order) => (
+                                    {recentOrders.map((order) => (
                                         <tr key={order.id} className="border-b last:border-0 hover:bg-muted/50">
                                             <td className="p-4 font-mono text-sm">#{order.id}</td>
                                             <td className="p-4">
@@ -401,7 +353,7 @@ const Dashboard = ({ orders = [] }: { orders?: Order[] }) => {
                                                     minute: '2-digit'
                                                 })}
                                             </td>
-                                            <td className="p-4">{order.total_pages} halaman</td>
+                                            <td className="p-4">{formatNumber(order.total_pages)} halaman</td>
                                             <td className="p-4 font-semibold">{formatCurrency(order.total_price)}</td>
                                             <td className="p-4">
                                                 <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
@@ -413,7 +365,7 @@ const Dashboard = ({ orders = [] }: { orders?: Order[] }) => {
                                 </tbody>
                             </table>
                         </div>
-                        {safeOrders.length === 0 && (
+                        {recentOrders.length === 0 && (
                             <div className="text-center py-12">
                                 <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
                                 <h3 className="mt-4 text-lg font-semibold">Belum ada order</h3>

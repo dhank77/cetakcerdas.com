@@ -4,6 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
+        <meta name="captcha-sitekey" content="{{ config('captcha.sitekey') }}">
         <meta name="description" content="CetakCerdas.com membantu Anda menghitung harga cetak dokumen, print, dan jilid secara online. Mudah, cepat, dan akurat.">
         <meta name="keywords" content="cetak cerdas,cetak online, harga print, harga jilid, cetak dokumen, print pdf, hitung biaya cetak">
         <link rel="canonical" href="https://cetakcerdas.com/" />
@@ -47,11 +48,8 @@
         @vite(['resources/js/app.tsx', "resources/js/pages/{$page['component']}.tsx"])
         @inertiaHead
         
-        {{-- reCAPTCHA v3 Script --}}
-        {!! RecaptchaV3::initJs() !!}
-        <script>
-            window.recaptchaSiteKey = '{{ config('recaptchav3.sitekey') }}';
-        </script>
+        {{-- reCAPTCHA v2 Script --}}
+        {!! NoCaptcha::renderJs() !!}
     </head>
     <body class="font-sans antialiased">
         @inertia

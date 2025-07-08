@@ -4,8 +4,72 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "48cfb977f87c5784a1b3a96b27b638b1",
+    "content-hash": "1ecb52c6f22dc0ddd4f6f824a74f7330",
     "packages": [
+        {
+            "name": "anhskohbo/no-captcha",
+            "version": "3.7.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/anhskohbo/no-captcha.git",
+                "reference": "87666572f0dbe1e3380a2e9ae7574bf3a2d0804e"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/anhskohbo/no-captcha/zipball/87666572f0dbe1e3380a2e9ae7574bf3a2d0804e",
+                "reference": "87666572f0dbe1e3380a2e9ae7574bf3a2d0804e",
+                "shasum": ""
+            },
+            "require": {
+                "guzzlehttp/guzzle": "^6.2|^7.0",
+                "illuminate/support": "^5.0|^6.0|^7.0|^8.0|^9.0|^10.0|^11.0|^12.0",
+                "php": ">=5.5.5"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "~4.8|^9.5.10|^10.5"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "aliases": {
+                        "NoCaptcha": "Anhskohbo\\NoCaptcha\\Facades\\NoCaptcha"
+                    },
+                    "providers": [
+                        "Anhskohbo\\NoCaptcha\\NoCaptchaServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Anhskohbo\\NoCaptcha\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "anhskohbo",
+                    "email": "anhskohbo@gmail.com"
+                }
+            ],
+            "description": "No CAPTCHA reCAPTCHA For Laravel.",
+            "keywords": [
+                "captcha",
+                "laravel",
+                "laravel4",
+                "laravel5",
+                "laravel6",
+                "no-captcha",
+                "recaptcha"
+            ],
+            "support": {
+                "issues": "https://github.com/anhskohbo/no-captcha/issues",
+                "source": "https://github.com/anhskohbo/no-captcha/tree/3.7.0"
+            },
+            "time": "2025-02-25T18:53:34+00:00"
+        },
         {
             "name": "brick/math",
             "version": "0.13.1",
@@ -1121,72 +1185,6 @@
                 "source": "https://github.com/inertiajs/inertia-laravel/tree/v2.0.3"
             },
             "time": "2025-06-20T07:38:21+00:00"
-        },
-        {
-            "name": "josiasmontag/laravel-recaptchav3",
-            "version": "1.0.4",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/josiasmontag/laravel-recaptchav3.git",
-                "reference": "08548b818223a20fc7db04a8d060758f8efc4ef5"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/josiasmontag/laravel-recaptchav3/zipball/08548b818223a20fc7db04a8d060758f8efc4ef5",
-                "reference": "08548b818223a20fc7db04a8d060758f8efc4ef5",
-                "shasum": ""
-            },
-            "require": {
-                "guzzlehttp/guzzle": "^6.2|^7.0",
-                "illuminate/container": "~5.7.0|~5.8.0|^6.0|^7.0|^8.0|^9.0|^10.0|^11.0|^12.0",
-                "illuminate/http": "~5.7.0|~5.8.0|^6.0|^7.0|^8.0|^9.0|^10.0|^11.0|^12.0",
-                "illuminate/support": "~5.7.0|~5.8.0|^6.0|^7.0|^8.0|^9.0|^10.0|^11.0|^12.0",
-                "php": ">=7.1.0"
-            },
-            "require-dev": {
-                "mockery/mockery": "^1.2",
-                "orchestra/testbench": "~3.7.0|~3.8.0|^4.0|^5.0|^6.0|^7.0|^8.0|^9.0|^10.0",
-                "phpunit/phpunit": "6.2|^7.0|^8.0|^9.5.10|^10.5|^11.5.3"
-            },
-            "type": "library",
-            "extra": {
-                "laravel": {
-                    "aliases": {
-                        "RecaptchaV3": "Lunaweb\\RecaptchaV3\\Facades\\RecaptchaV3"
-                    },
-                    "providers": [
-                        "Lunaweb\\RecaptchaV3\\Providers\\RecaptchaV3ServiceProvider"
-                    ]
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Lunaweb\\RecaptchaV3\\": "src"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Josias Montag",
-                    "email": "josias@montag.info"
-                }
-            ],
-            "description": "Recaptcha V3 for Laravel package",
-            "homepage": "https://github.com/josiasmontag/laravel-recaptchav3",
-            "keywords": [
-                "captcha",
-                "laravel",
-                "php",
-                "recaptcha"
-            ],
-            "support": {
-                "issues": "https://github.com/josiasmontag/laravel-recaptchav3/issues",
-                "source": "https://github.com/josiasmontag/laravel-recaptchav3/tree/1.0.4"
-            },
-            "time": "2025-02-25T08:00:22+00:00"
         },
         {
             "name": "laminas/laminas-diactoros",

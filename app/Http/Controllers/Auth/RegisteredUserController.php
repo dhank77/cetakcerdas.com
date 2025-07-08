@@ -35,7 +35,7 @@ class RegisteredUserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'g-recaptcha-response' => ['required', 'recaptchav3:register,0.5'],
+            'g-recaptcha-response' => app()->environment('production') ? ['required', 'captcha'] : ['nullable'],
         ]);
 
         $user = User::create([

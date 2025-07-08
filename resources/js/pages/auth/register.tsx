@@ -1,6 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import { LoaderCircle } from 'lucide-react';
-import { FormEventHandler, useEffect } from 'react';
+import { FormEventHandler, useEffect, useRef } from 'react';
 
 import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
@@ -28,29 +28,26 @@ export default function Register() {
         'g-recaptcha-response': '',
     });
 
+    const recaptchaRef = useRef<HTMLDivElement>(null);
+
     useEffect(() => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const grecaptcha = (window as any).grecaptcha;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const siteKey = (window as any).recaptchaSiteKey;
-
-        if (grecaptcha && siteKey) {
+        
+        if (grecaptcha && recaptchaRef.current) {
             grecaptcha.ready(() => {
-                grecaptcha.execute(siteKey, { action: 'login' })
-                    .then((token: string) => {
-                        console.log('✅ reCAPTCHA token:', token);
+                grecaptcha.render(recaptchaRef.current, {
+                    sitekey: document.querySelector('meta[name="captcha-sitekey"]')?.getAttribute('content') || '',
+                    callback: (token: string) => {
                         setData('g-recaptcha-response', token);
-                    })
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    .catch((err: any) => {
-                        console.error('❌ Failed to execute reCAPTCHA:', err);
+                    },
+                    'expired-callback': () => {
                         setData('g-recaptcha-response', '');
-                    });
+                    }
+                });
             });
         }
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [setData]);
 
     const submit: FormEventHandler = async (e) => {
         e.preventDefault();
@@ -151,8 +148,10 @@ export default function Register() {
                             <InputError message={errors.password_confirmation} />
                         </div>
 
-                        {/* reCAPTCHA v3 Hidden Field */}
-                        <input type="hidden" name="g-recaptcha-response" value={data['g-recaptcha-response']} />
+                        {/* reCAPTCHA v2 Widget */}
+                        <div className="flex justify-center">
+                            <div ref={recaptchaRef}></div>
+                        </div>
                         <InputError message={errors['g-recaptcha-response']} />
 
                         <Button

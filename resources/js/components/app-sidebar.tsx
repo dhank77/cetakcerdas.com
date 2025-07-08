@@ -19,7 +19,7 @@ const mainNavItems: NavItem[] = [
     },
     {
         title: 'Kiriman Pelanggan',
-        href: '/bookings',
+        href: route('bookings.index'),
         icon: MessageSquareShareIcon,
     },
     {

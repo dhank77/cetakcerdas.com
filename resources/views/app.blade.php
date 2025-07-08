@@ -46,6 +46,12 @@
         @viteReactRefresh
         @vite(['resources/js/app.tsx', "resources/js/pages/{$page['component']}.tsx"])
         @inertiaHead
+        
+        {{-- reCAPTCHA v3 Script --}}
+        {!! RecaptchaV3::initJs() !!}
+        <script>
+            window.recaptchaSiteKey = '{{ config('recaptchav3.sitekey') }}';
+        </script>
     </head>
     <body class="font-sans antialiased">
         @inertia

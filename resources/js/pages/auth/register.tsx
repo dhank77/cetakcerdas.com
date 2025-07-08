@@ -16,6 +16,7 @@ type RegisterForm = {
     email: string;
     password: string;
     password_confirmation: string;
+    'g-recaptcha-response': string;
 };
 
 export default function Register() {
@@ -24,13 +25,32 @@ export default function Register() {
         email: '',
         password: '',
         password_confirmation: '',
+        'g-recaptcha-response': '',
     });
 
-    const submit: FormEventHandler = (e) => {
+    const submit: FormEventHandler = async (e) => {
         e.preventDefault();
-        post(route('register'), {
-            onFinish: () => reset('password', 'password_confirmation'),
-        });
+        
+        // Get reCAPTCHA token
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((window as any).grecaptcha) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (window as any).grecaptcha.ready(() => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (window as any).grecaptcha.execute((window as any).recaptchaSiteKey, { action: 'register' }).then((token: string) => {
+                    setData('g-recaptcha-response', token);
+                    setTimeout(() => {
+                        post(route('register'), {
+                            onFinish: () => reset('password', 'password_confirmation'),
+                        });
+                    }, 100);
+                });
+            });
+        } else {
+            post(route('register'), {
+                onFinish: () => reset('password', 'password_confirmation'),
+            });
+        }
     };
 
     return (
@@ -124,6 +144,10 @@ export default function Register() {
                             />
                             <InputError message={errors.password_confirmation} />
                         </div>
+
+                        {/* reCAPTCHA v3 Hidden Field */}
+                        <input type="hidden" name="g-recaptcha-response" value={data['g-recaptcha-response']} />
+                        <InputError message={errors['g-recaptcha-response']} />
 
                         <Button
                             type="submit"

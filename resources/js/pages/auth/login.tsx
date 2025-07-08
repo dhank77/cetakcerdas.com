@@ -16,6 +16,7 @@ type LoginForm = {
     email: string;
     password: string;
     remember: boolean;
+    'g-recaptcha-response': string;
 };
 
 interface LoginProps {
@@ -28,13 +29,32 @@ export default function Login({ status, canResetPassword }: LoginProps) {
         email: '',
         password: '',
         remember: false,
+        'g-recaptcha-response': '',
     });
 
-    const submit: FormEventHandler = (e) => {
+    const submit: FormEventHandler = async (e) => {
         e.preventDefault();
-        post(route('login'), {
-            onFinish: () => reset('password'),
-        });
+        
+        // Get reCAPTCHA token
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((window as any).grecaptcha) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (window as any).grecaptcha.ready(() => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (window as any).grecaptcha.execute((window as any).recaptchaSiteKey, { action: 'login' }).then((token: string) => {
+                    setData('g-recaptcha-response', token);
+                    setTimeout(() => {
+                        post(route('login'), {
+                            onFinish: () => reset('password'),
+                        });
+                    }, 100);
+                });
+            });
+        } else {
+            post(route('login'), {
+                onFinish: () => reset('password'),
+            });
+        }
     };
 
     return (
@@ -112,6 +132,10 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                             />
                             <Label htmlFor="remember" className="text-sm text-gray-700 dark:text-gray-300">Ingat saya</Label>
                         </div>
+
+                        {/* reCAPTCHA v3 Hidden Field */}
+                        <input type="hidden" name="g-recaptcha-response" value={data['g-recaptcha-response']} />
+                        <InputError message={errors['g-recaptcha-response']} />
 
                         <Button 
                             type="submit" 

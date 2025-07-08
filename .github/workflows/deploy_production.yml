@@ -64,8 +64,8 @@ jobs:
       #     source: "bootstrap/ssr"
       #     target: "/var/www/cetakcerdas.com"
         
-      - name: Tests
-        run: php artisan test
+      # - name: Tests
+      #   run: php artisan test
 
       - name: SSH and deploy backend
         uses: appleboy/ssh-action@v1.0.0

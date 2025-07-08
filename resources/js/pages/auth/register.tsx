@@ -1,6 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import { LoaderCircle } from 'lucide-react';
-import { FormEventHandler } from 'react';
+import { FormEventHandler, useEffect } from 'react';
 
 import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
@@ -28,29 +28,35 @@ export default function Register() {
         'g-recaptcha-response': '',
     });
 
-    const submit: FormEventHandler = async (e) => {
-        e.preventDefault();
-        
-        // Get reCAPTCHA token
+    useEffect(() => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if ((window as any).grecaptcha) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (window as any).grecaptcha.ready(() => {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (window as any).grecaptcha.execute((window as any).recaptchaSiteKey, { action: 'register' }).then((token: string) => {
-                    setData('g-recaptcha-response', token);
-                    setTimeout(() => {
-                        post(route('register'), {
-                            onFinish: () => reset('password', 'password_confirmation'),
-                        });
-                    }, 100);
-                });
-            });
-        } else {
-            post(route('register'), {
-                onFinish: () => reset('password', 'password_confirmation'),
+        const grecaptcha = (window as any).grecaptcha;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const siteKey = (window as any).recaptchaSiteKey;
+
+        if (grecaptcha && siteKey) {
+            grecaptcha.ready(() => {
+                grecaptcha.execute(siteKey, { action: 'login' })
+                    .then((token: string) => {
+                        console.log('✅ reCAPTCHA token:', token);
+                        setData('g-recaptcha-response', token);
+                    })
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    .catch((err: any) => {
+                        console.error('❌ Failed to execute reCAPTCHA:', err);
+                        setData('g-recaptcha-response', '');
+                    });
             });
         }
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const submit: FormEventHandler = async (e) => {
+        e.preventDefault();
+        post(route('register'), {
+            onFinish: () => reset('password', 'password_confirmation'),
+        });
     };
 
     return (

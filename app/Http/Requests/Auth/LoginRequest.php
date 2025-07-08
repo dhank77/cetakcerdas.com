@@ -29,7 +29,7 @@ class LoginRequest extends FormRequest
         return [
             'email' => ['required', 'string', 'email'],
             'password' => ['required', 'string'],
-            'g-recaptcha-response' => ['required', 'recaptchav3:login,0.5'],
+            'g-recaptcha-response' => app()->environment('production') ? ['required', 'captcha'] : ['nullable'],
         ];
     }
 
@@ -42,7 +42,8 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt(['email' => $this->email, 'password' => $this->password], (bool) $this->remember)) {
+        $credentials = $this->validated();
+        if (! Auth::attempt(['email' => $credentials['email'], 'password' => $credentials['password']], isset($credentials['remember']))) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
@@ -81,6 +82,7 @@ class LoginRequest extends FormRequest
      */
     public function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->email).'|'.$this->ip());
+        $validated = $this->validated();
+        return Str::transliterate(Str::lower($validated['email']).'|'.request()->ip());
     }
 }

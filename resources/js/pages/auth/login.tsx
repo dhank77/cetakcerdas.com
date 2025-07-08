@@ -1,21 +1,22 @@
 import { Head, useForm } from '@inertiajs/react';
 import { LoaderCircle } from 'lucide-react';
-import { FormEventHandler } from 'react';
+import { FormEventHandler, useEffect } from 'react';
 
 import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import AuthSplitLayout from '@/layouts/auth-split-layout';
 
 type LoginForm = {
     email: string;
     password: string;
     remember: boolean;
+    'g-recaptcha-response': string;
 };
 
 interface LoginProps {
@@ -28,10 +29,37 @@ export default function Login({ status, canResetPassword }: LoginProps) {
         email: '',
         password: '',
         remember: false,
+        'g-recaptcha-response': '',
     });
 
-    const submit: FormEventHandler = (e) => {
+    useEffect(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const grecaptcha = (window as any).grecaptcha;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const siteKey = (window as any).recaptchaSiteKey;
+
+        if (grecaptcha && siteKey) {
+            grecaptcha.ready(() => {
+                grecaptcha.execute(siteKey, { action: 'login' })
+                    .then((token: string) => {
+                        console.log('✅ reCAPTCHA token:', token);
+                        setData('g-recaptcha-response', token);
+                    })
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    .catch((err: any) => {
+                        console.error('❌ Failed to execute reCAPTCHA:', err);
+                        setData('g-recaptcha-response', '');
+                    });
+            });
+        }
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const submit: FormEventHandler = async (e) => {
         e.preventDefault();
+        console.log(data);
+        
         post(route('login'), {
             onFinish: () => reset('password'),
         });
@@ -48,9 +76,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                             Selamat Datang Kembali
                         </Badge>
                         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Masuk ke Akun Anda</h2>
-                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                            Lanjutkan mengelola bisnis percetakan Anda
-                        </p>
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">Lanjutkan mengelola bisnis percetakan Anda</p>
                     </div>
 
                     {status && <div className="mb-4 text-center text-sm font-medium text-green-600">{status}</div>}
@@ -82,7 +108,11 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                                     Password
                                 </Label>
                                 {canResetPassword && (
-                                    <TextLink href={route('password.request')} className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400" tabIndex={5}>
+                                    <TextLink
+                                        href={route('password.request')}
+                                        className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                                        tabIndex={5}
+                                    >
                                         Lupa password?
                                     </TextLink>
                                 )}
@@ -110,13 +140,19 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                                 onClick={() => setData('remember', !data.remember)}
                                 tabIndex={3}
                             />
-                            <Label htmlFor="remember" className="text-sm text-gray-700 dark:text-gray-300">Ingat saya</Label>
+                            <Label htmlFor="remember" className="text-sm text-gray-700 dark:text-gray-300">
+                                Ingat saya
+                            </Label>
                         </div>
 
-                        <Button 
-                            type="submit" 
-                            className="mt-6 h-11 w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold" 
-                            tabIndex={4} 
+                        {/* reCAPTCHA v3 Hidden Field */}
+                        <input type="hidden" name="g-recaptcha-response" value={data['g-recaptcha-response']} />
+                        <InputError message={errors['g-recaptcha-response']} />
+
+                        <Button
+                            type="submit"
+                            className="mt-6 h-11 w-full bg-gradient-to-r from-blue-600 to-purple-600 font-semibold text-white hover:from-blue-700 hover:to-purple-700"
+                            tabIndex={4}
                             disabled={processing}
                         >
                             {processing ? (
@@ -125,7 +161,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                                     Masuk...
                                 </>
                             ) : (
-                                "Masuk ke Dashboard"
+                                'Masuk ke Dashboard'
                             )}
                         </Button>
                     </form>
@@ -133,8 +169,8 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                     <div className="mt-6 text-center">
                         <p className="text-sm text-gray-600 dark:text-gray-300">
                             Belum punya akun?{' '}
-                            <TextLink 
-                                href={route('register')} 
+                            <TextLink
+                                href={route('register')}
                                 tabIndex={6}
                                 className="font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400"
                             >

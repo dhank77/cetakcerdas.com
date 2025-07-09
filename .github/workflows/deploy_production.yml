@@ -78,10 +78,6 @@ jobs:
             cd /var/www/cetakcerdas.com
             git reset --hard HEAD
             git pull origin main
-            find storage -type f -exec chmod 664 {} \;
-            find storage -type d -exec chmod 775 {} \;
-            find bootstrap/cache -type f -exec chmod 664 {} \;
-            find bootstrap/cache -type d -exec chmod 775 {} \;
             composer install --no-dev --optimize-autoloader
             php artisan config:cache
             php artisan route:cache

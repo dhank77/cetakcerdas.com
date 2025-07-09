@@ -18,7 +18,7 @@ class SettingController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function action(Request $request)
     {
         $data = $request->validate([
             'bw_price' => 'required|numeric|min:0',
@@ -29,8 +29,15 @@ class SettingController extends Controller
         ]);
 
         $data['user_id'] = $request->user()->id;
+        $id = $request->input('id');
 
-        if(Setting::create($data)) {
+        if ($id) {
+            $action = Setting::where('id', $id)->update($data);
+        } else {
+            $action = Setting::create($data);
+        }
+
+        if($action) {
             return redirect()->route('setting.index')->with([
                 'type' => 'success',
                 'messages' => 'Pengaturan berhasil disimpan!',
@@ -40,31 +47,6 @@ class SettingController extends Controller
         return redirect()->route('setting.index')->with([
             'type' => 'error',
             'messages' => 'Pengaturan gagal disimpan!',
-        ]);
-    }
-
-    public function update(Setting $setting, Request $request)
-    {
-        abort_if($setting->user_id !== $request->user()->id, 403);
-
-        $data = $request->validate([
-            'bw_price' => 'required|numeric|min:0',
-            'color_price' => 'required|numeric|min:0',
-            'photo_price' => 'nullable|numeric|min:0',
-            'threshold_color' => 'nullable|numeric|min:0|max:100',
-            'threshold_photo' => 'nullable|numeric|min:0|max:100',
-        ]);
-
-        if($setting->update($data)) {
-            return redirect()->route('setting.index')->with([
-                'type' => 'success',
-                'messages' => 'Pengaturan berhasil diperbarui!',
-            ]);
-        }
-
-        return redirect()->route('setting.index')->with([
-            'type' => 'error',
-            'messages' => 'Pengaturan gagal diperbarui!',
         ]);
     }
 }

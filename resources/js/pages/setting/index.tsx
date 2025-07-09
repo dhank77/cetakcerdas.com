@@ -17,6 +17,7 @@ const Index = ({ setting }: Props) => {
     const isProMember = false;
 
     const { data, setData, post, processing, errors, reset } = useForm({
+        id: setting?.id || 0,
         bw_price: setting?.bw_price || 0,
         color_price: setting?.color_price || 0,
         photo_price: setting?.photo_price || 0,
@@ -27,11 +28,7 @@ const Index = ({ setting }: Props) => {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (setting) {
-            post(route('setting.update', setting.id));
-        } else {
-            post(route('setting.store'));
-        }
+        post(route('setting.action'));
     };
 
     return (

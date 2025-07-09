@@ -84,30 +84,45 @@ const Index = ({ user, priceSettingColor, priceSettingPhoto, priceSettingBw }: P
 
     const analyzeDocument = async () => {
         if (!file) return;
-
+    
         setIsAnalyzing(true);
         setError(null);
-
+    
         try {
             const formData = new FormData();
             formData.append('file', file);
             formData.append('slug', user?.slug ?? '');
-
+    
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            
+            if (!csrfToken) {
+                throw new Error('CSRF token tidak ditemukan. Silakan refresh halaman.');
+            }
+    
             const response = await fetch(route('calculate-price'), {
                 method: 'POST',
                 headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
                 },
                 body: formData,
+                credentials: 'same-origin',
             });
-
+    
+            if (response.status === 419) {
+                throw new Error('Sesi telah berakhir. Silakan refresh halaman dan coba lagi.');
+            }
+            
             if (response.status === 429 && (user?.slug ?? '') === '') {
                 throw new Error('Terlalu banyak percobaan. Silakan daftar gratis tanpa limit.');
             }
+            
             if (!response.ok) {
-                throw new Error('Terjadi kesalahan');
+                const errorData = await response.json().catch(() => null);
+                throw new Error(errorData?.message || 'Terjadi kesalahan');
             }
-
+    
             const result = await response.json();
             setAnalysisResult(result);
             

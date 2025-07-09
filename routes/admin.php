@@ -15,8 +15,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     
     Route::prefix('setting')->name('setting.')->group(function () {
         Route::get('', [SettingController::class, 'index'])->name('index');
-        Route::put('', [SettingController::class, 'update'])->name('update');
-        Route::post('', [SettingController::class, 'store'])->name('store');
+        Route::post('', [SettingController::class, 'action'])->name('action');
     });
 
     Route::get('help', HelpController::class)->name('help');

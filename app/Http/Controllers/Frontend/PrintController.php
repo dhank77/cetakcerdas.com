@@ -26,7 +26,7 @@ class PrintController extends Controller
             $setting = $user->setting;
             if ($setting) {
                 $priceSettingColor = $setting->color_price;
-                $priceSettingPhoto = $setting->photo_price ?? $setting->color_price;
+                $priceSettingPhoto = $setting->photo_price > 0 ? $setting->photo_price : $setting->color_price;
                 $priceSettingBw = $setting->bw_price;
             }
         }

@@ -25,7 +25,7 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
     const [isCartVisible, setIsCartVisible] = useState(false);
     const [isItemAdded, setIsItemAdded] = useState(false);
 
-    useEffect(() => {   
+    useEffect(() => {
         const existingCart = localStorage.getItem('printCart');
         if (existingCart) {
             const cartItems = JSON.parse(existingCart);
@@ -41,7 +41,7 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
 
     const addToCart = () => {
         if (!analysisResult) return;
-    
+
         const cartItem = {
             id: Date.now().toString(),
             fileName: fileName,
@@ -55,20 +55,20 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
             pricePhoto: analysisResult.price_photo || 0,
             timestamp: Date.now(),
         };
-    
+
         // Get existing cart
         const existingCart = localStorage.getItem('printCart');
         const cartItems = existingCart ? JSON.parse(existingCart) : [];
-    
+
         // Add new item
         cartItems.push(cartItem);
-    
+
         // Save to localStorage
         localStorage.setItem('printCart', JSON.stringify(cartItems));
-    
+
         // Dispatch custom event to notify cart update
         window.dispatchEvent(new CustomEvent('cartUpdated'));
-    
+
         if (previewUrl && previewUrl !== 'docx-pending' && previewUrl !== 'docx-info') {
             const printWindow = window.open(previewUrl, '_blank');
             if (printWindow) {
@@ -92,7 +92,6 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
             alert('Dokumen tidak tersedia untuk dicetak. Silakan upload ulang dokumen.');
         }
 
-    
         // Mark item as added and show cart popup
         setIsItemAdded(true);
         setIsCartVisible(true);
@@ -178,7 +177,7 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
                     </div>
 
                     <div className="space-y-2 pt-1">
-                        {analysisResult && (
+                        {analysisResult && analysisResult.total_price > 0 && (
                             <Button
                                 onClick={addToCart}
                                 disabled={isItemAdded}

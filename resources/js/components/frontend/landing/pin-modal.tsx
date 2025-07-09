@@ -118,7 +118,7 @@ const PinModal = forwardRef<PinModalRef, PinModalProps>(({ user, isProduction, o
         const correctPin = user?.pin ?? 0;
         const pinNumber = parseInt(pin);
 
-        if (pinNumber === correctPin) {
+        if (Number(pinNumber) === Number(correctPin)) {
             setShowPinModal(false);
             setPinError('');
             setPinAttempts(0);

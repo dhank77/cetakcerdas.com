@@ -31,13 +31,13 @@ class SettingController extends Controller
         $data['user_id'] = $request->user()->id;
 
         if(Setting::create($data)) {
-            return redirect()->route('setting')->with([
+            return redirect()->route('setting.index')->with([
                 'type' => 'success',
                 'messages' => 'Pengaturan berhasil disimpan!',
             ]);
         }
 
-        return redirect()->route('setting')->with([
+        return redirect()->route('setting.index')->with([
             'type' => 'error',
             'messages' => 'Pengaturan gagal disimpan!',
         ]);
@@ -56,13 +56,13 @@ class SettingController extends Controller
         ]);
 
         if($setting->update($data)) {
-            return redirect()->route('setting')->with([
+            return redirect()->route('setting.index')->with([
                 'type' => 'success',
                 'messages' => 'Pengaturan berhasil diperbarui!',
             ]);
         }
 
-        return redirect()->route('setting')->with([
+        return redirect()->route('setting.index')->with([
             'type' => 'error',
             'messages' => 'Pengaturan gagal diperbarui!',
         ]);

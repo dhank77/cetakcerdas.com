@@ -14,6 +14,11 @@ Route::post('print-order', [PrintController::class, 'order'])->name('print.order
 Route::get('booking/{slug}', [BookingController::class, 'index'])->name('booking');
 Route::post('booking/{slug}/upload', [BookingController::class, 'store'])->name('booking.store');
 
+// CSRF token endpoint
+Route::get('/csrf-token', function () {
+    return response()->json(['token' => csrf_token()]);
+})->name('csrf-token');
+
 Route::post('/calculate-price', CalculatePriceController::class)
     ->middleware('limit.page.access')
     ->name('calculate-price');

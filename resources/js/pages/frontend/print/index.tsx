@@ -84,32 +84,94 @@ const Index = ({ user, priceSettingColor, priceSettingPhoto, priceSettingBw }: P
 
     const analyzeDocument = async () => {
         if (!file) return;
-    
+
         setIsAnalyzing(true);
         setError(null);
-    
+
         try {
             const formData = new FormData();
             formData.append('file', file);
             formData.append('slug', user?.slug ?? '');
-    
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+            // Function to get current CSRF token
+            const getCurrentToken = () => {
+                return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            };
+
+            // Function to refresh CSRF token using dedicated endpoint
+            const refreshCSRFToken = async () => {
+                try {
+                    const response = await fetch(route('csrf-token'), {
+                        method: 'GET',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const newToken = data.token;
+                        
+                        if (newToken) {
+                            // Update the token in current page
+                            const currentTokenMeta = document.querySelector('meta[name="csrf-token"]');
+                            if (currentTokenMeta) {
+                                currentTokenMeta.setAttribute('content', newToken);
+                            }
+                            return newToken;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to refresh CSRF token:', error);
+                }
+                return null;
+            };
+
+            // Function to make the API request
+            const makeRequest = async (token: string) => {
+                return await fetch(route('calculate-price'), {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': token,
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: formData,
+                    credentials: 'same-origin',
+                });
+            };
+
+            let csrfToken = getCurrentToken();
             
             if (!csrfToken) {
-                throw new Error('CSRF token tidak ditemukan. Silakan refresh halaman.');
+                console.log('No CSRF token found, attempting to get fresh token...');
+                csrfToken = await refreshCSRFToken();
+                
+                if (!csrfToken) {
+                    throw new Error('CSRF token tidak ditemukan. Silakan refresh halaman.');
+                }
             }
-    
-            const response = await fetch(route('calculate-price'), {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': csrfToken,
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                body: formData,
-                credentials: 'same-origin',
-            });
-    
+
+            // First attempt
+            let response = await makeRequest(csrfToken);
+
+            // If CSRF token mismatch, try to refresh token and retry once
+            if (response.status === 419) {
+                console.log('CSRF token mismatch, attempting to refresh token...');
+                
+                const newToken = await refreshCSRFToken();
+                
+                if (newToken) {
+                    console.log('Token refreshed successfully, retrying request...');
+                    response = await makeRequest(newToken);
+                } else {
+                    throw new Error('Gagal memperbarui token CSRF. Silakan refresh halaman dan coba lagi.');
+                }
+            }
+            
+            // If still getting 419 after refresh, give up
             if (response.status === 419) {
                 throw new Error('Sesi telah berakhir. Silakan refresh halaman dan coba lagi.');
             }
@@ -120,9 +182,9 @@ const Index = ({ user, priceSettingColor, priceSettingPhoto, priceSettingBw }: P
             
             if (!response.ok) {
                 const errorData = await response.json().catch(() => null);
-                throw new Error(errorData?.message || 'Terjadi kesalahan');
+                throw new Error(errorData?.message || `HTTP Error: ${response.status}`);
             }
-    
+
             const result = await response.json();
             setAnalysisResult(result);
             
@@ -134,7 +196,8 @@ const Index = ({ user, priceSettingColor, priceSettingPhoto, priceSettingBw }: P
                 setPreviewUrl(officeUrl);
             }
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'An error occurred');
+            console.error('Analysis error:', err);
+            setError(err instanceof Error ? err.message : 'Terjadi kesalahan yang tidak diketahui');
         } finally {
             setIsAnalyzing(false);
         }

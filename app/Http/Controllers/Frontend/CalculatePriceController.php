@@ -17,7 +17,7 @@ class CalculatePriceController extends Controller
     public function __invoke(Request $request): JsonResponse
     {
         $request->validate([
-            'file' => 'required|file|mimes:pdf,docx,doc',
+            'file' => 'required|file|mimes:pdf,docx,doc|max:2048',
         ]);
 
         $fastapi = config('fastapi.url');

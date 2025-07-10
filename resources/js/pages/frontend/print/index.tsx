@@ -24,6 +24,15 @@ const Index = ({ user, priceSettingColor, priceSettingPhoto, priceSettingBw }: P
     const { auth } = usePage<SharedData>().props;
     const pinModalRef = useRef<PinModalRef>(null);
 
+    // Auto reload on first access
+    useEffect(() => {
+        const hasReloaded = sessionStorage.getItem('page_reloaded');
+        if (!hasReloaded) {
+            sessionStorage.setItem('page_reloaded', 'true');
+            window.location.reload();
+        }
+    }, []);
+
     const [file, setFile] = useState<File | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);

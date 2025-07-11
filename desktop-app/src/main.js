@@ -260,6 +260,165 @@ function startLocalServer() {
       }
     });
 
+    // Handle PDF analysis locally with price calculation
+    app.post('/calculate-price', multer().single('file'), async (req, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        const slug = req.body.slug || 'testing';
+        const colorThreshold = parseFloat(req.body.color_threshold) || 20.0;
+        const photoThreshold = parseFloat(req.body.photo_threshold) || 30.0;
+
+        // Default price settings
+        let priceSettingColor = 1000;
+        let priceSettingBw = 500;
+        let priceSettingPhoto = 2000;
+
+        let analysisResult;
+        let analysisMode = 'local';
+        let fallbackUsed = false;
+
+        try {
+          // Try local analysis first (up to 50MB)
+          console.log('Attempting local PDF analysis...');
+          
+          const formData = new FormData();
+          formData.append('file', req.file.buffer, req.file.originalname);
+
+          const response = await fetch(
+            `http://127.0.0.1:${CONFIG.PYTHON_PORT}/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`,
+            {
+              method: 'POST',
+              body: formData,
+              timeout: 30000
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(`Local Python service error: ${response.status}`);
+          }
+
+          analysisResult = await response.json();
+          console.log('Local analysis successful');
+
+        } catch (localError) {
+          console.log('Local analysis failed, trying server fallback:', localError.message);
+          
+          // Fallback to server (max 2MB)
+          if (req.file.size > 2 * 1024 * 1024) {
+            throw new Error('File terlalu besar untuk server (max 2MB). Local service tidak tersedia.');
+          }
+
+          try {
+            const serverFormData = new FormData();
+            serverFormData.append('file', req.file.buffer, req.file.originalname);
+            serverFormData.append('slug', slug);
+
+            const serverResponse = await fetch(`${CONFIG.SERVER_URL}/calculate-price`, {
+              method: 'POST',
+              body: serverFormData,
+              timeout: 30000
+            });
+
+            if (!serverResponse.ok) {
+              throw new Error(`Server error: ${serverResponse.status}`);
+            }
+
+            const serverResult = await serverResponse.json();
+            
+            // Return server result directly as it already includes price calculation
+            return res.json({
+              ...serverResult,
+              analysis_mode: 'server_fallback',
+              fallback_used: true,
+              local_error: localError.message
+            });
+
+          } catch (serverError) {
+            console.error('Server fallback also failed:', serverError.message);
+            
+            // Return fallback result
+            analysisResult = {
+              total_pages: 0,
+              color_pages: 0,
+              bw_pages: 0,
+              photo_pages: 0,
+              page_details: []
+            };
+            analysisMode = 'fallback';
+            fallbackUsed = true;
+          }
+        }
+
+        // Try to get user settings from server (optional)
+        try {
+          const settingsResponse = await fetch(`${CONFIG.SERVER_URL}/api/user-settings/${slug}`, {
+            timeout: 5000
+          });
+          
+          if (settingsResponse.ok) {
+            const settings = await settingsResponse.json();
+            if (settings.success && settings.data) {
+              priceSettingColor = settings.data.color_price || priceSettingColor;
+              priceSettingBw = settings.data.bw_price || priceSettingBw;
+              priceSettingPhoto = settings.data.photo_price || priceSettingColor;
+            }
+          }
+        } catch (settingsError) {
+          console.log('Could not fetch user settings, using defaults:', settingsError.message);
+        }
+
+        // Calculate prices
+        const priceColor = (analysisResult.color_pages || 0) * priceSettingColor;
+        const priceBw = (analysisResult.bw_pages || 0) * priceSettingBw;
+        const pricePhoto = (analysisResult.photo_pages || 0) * priceSettingPhoto;
+        const totalPrice = priceColor + priceBw + pricePhoto;
+
+        // Save file temporarily (optional, for compatibility)
+        const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${req.file.originalname.split('.').pop()}`;
+        const fileUrl = `temp-uploads/${slug}/${fileName}`;
+
+        const result = {
+          price_color: priceColor,
+          price_bw: priceBw,
+          price_photo: pricePhoto,
+          total_price: totalPrice,
+          file_url: fileUrl,
+          file_name: req.file.originalname,
+          file_type: req.file.mimetype,
+          analysis_mode: analysisMode,
+          service_available: !fallbackUsed,
+          fallback_used: fallbackUsed,
+          pengaturan: {
+            threshold_warna: colorThreshold.toString(),
+            threshold_foto: photoThreshold.toString(),
+            price_setting_color: priceSettingColor,
+            price_setting_bw: priceSettingBw,
+            price_setting_photo: priceSettingPhoto,
+          },
+          ...analysisResult
+        };
+
+        console.log('Price calculation completed:', {
+          mode: analysisMode,
+          total_pages: analysisResult.total_pages,
+          total_price: totalPrice
+        });
+
+        res.json(result);
+
+      } catch (error) {
+        console.error('Calculate price error:', error);
+        res.status(500).json({
+          error: error.message,
+          analysis_mode: 'error',
+          fallback_used: true
+        });
+      }
+    });
+
     // Handle PDF analysis locally
     app.post('/analyze-document-local', multer().single('file'), async (req, res) => {
       try {

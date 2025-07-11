@@ -22,6 +22,10 @@ Route::post('/calculate-price', CalculatePriceController::class)
     ->middleware('limit.page.access')
     ->name('calculate-price');
 
+// API endpoint for user settings (for desktop app)
+Route::get('/api/user-settings/{slug}', [\App\Http\Controllers\SettingController::class, 'getUserSettings'])
+    ->name('api.user-settings');
+
 require __DIR__.'/admin.php';
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';

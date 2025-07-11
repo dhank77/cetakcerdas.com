@@ -11,7 +11,8 @@ build/
 out/
 
 # Frontend build files (generated from parent project)
-frontend-build/
+frontend-build/assets
+frontend-build/manifest.json
 
 # Electron build artifacts
 *.dmg

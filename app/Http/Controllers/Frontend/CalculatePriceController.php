@@ -4,23 +4,29 @@ namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\DocumentAnalyzerService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 
 class CalculatePriceController extends Controller
 {
+    private DocumentAnalyzerService $analyzerService;
+
+    public function __construct(DocumentAnalyzerService $analyzerService)
+    {
+        $this->analyzerService = $analyzerService;
+    }
+
     public function __invoke(Request $request): JsonResponse
     {
         $request->validate([
             'file' => 'required|file|mimes:pdf,docx,doc|max:2048',
         ]);
 
-        $fastapi = config('fastapi.url');
         $file = $request->file('file');
 
         $priceSettingPhoto = 2000;
@@ -50,45 +56,34 @@ class CalculatePriceController extends Controller
         $fullUrl = asset('storage/' . $filePath);
 
         try {
+            // Gunakan service baru untuk analisis dokumen
+            $responApi = $this->analyzerService->analyzeDocument(
+                $file,
+                $colorThreshold,
+                $photoThreshold
+            );
 
-            $response = Http::timeout(10)
-                ->asMultipart()
-                ->post("$fastapi/analyze-document?color_threshold={$colorThreshold}&photo_threshold={$photoThreshold}", [
-                    [
-                        'name' => 'file',
-                        'contents' => file_get_contents($file),
-                        'filename' => $file->getClientOriginalName(),
-                    ],
-                ]);
+            Log::info('Document Analysis Success', [
+                'mode' => $this->analyzerService->getMode(),
+                'file_name' => $file->getClientOriginalName(),
+                'total_pages' => $responApi['total_pages'] ?? 0
+            ]);
 
-            if (!$response->successful()) {
-                Log::error('FastAPI Error Response', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                    'url' => "$fastapi/analyze-document"
-                ]);
-
-                throw new Exception('Gagal menganalisis dokumen: ' . $response->status());
-            }
-
-            $responApi = $response->json();
-
-            if (!isset($responApi['color_pages']) || !isset($responApi['bw_pages']) || !isset($responApi['photo_pages'])) {
-                throw new Exception('Response API tidak valid');
-            }
         } catch (\Exception $e) {
-            Log::error('FastAPI Connection Error', [
+            Log::error('Document Analysis Error', [
+                'mode' => $this->analyzerService->getMode(),
                 'message' => $e->getMessage(),
-                'fastapi_url' => $fastapi,
                 'file_name' => $file->getClientOriginalName()
             ]);
 
+            // Fallback result
             $responApi = [
                 'color_pages' => 0,
                 'bw_pages' => 0,
                 'photo_pages' => 0,
                 'total_pages' => 0,
-                'page_details' => []
+                'page_details' => [],
+                'fallback' => true
             ];
         }
 
@@ -106,6 +101,8 @@ class CalculatePriceController extends Controller
             'file_url' => $fullUrl,
             'file_name' => $file->getClientOriginalName(),
             'file_type' => $file->getClientMimeType(),
+            'analysis_mode' => $this->analyzerService->getMode(),
+            'service_available' => $this->analyzerService->isAvailable(),
             'pengaturan' => [
                 'threshold_warna' => (string)$colorThreshold,
                 'threshold_foto' => (string)$photoThreshold,

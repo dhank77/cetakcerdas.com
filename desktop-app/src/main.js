@@ -194,6 +194,7 @@ function startPythonService() {
 
 // Check if Python service is running
 async function checkPythonService() {
+  // eslint-disable-next-line no-useless-catch
   try {
     const response = await fetch(`http://127.0.0.1:${CONFIG.PYTHON_PORT}/`);
     if (response.ok) {

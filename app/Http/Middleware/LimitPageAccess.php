@@ -34,10 +34,20 @@ class LimitPageAccess
         $ip = $request->ip();
         $userAgent = substr($request->userAgent(), 0, 255);
 
-        $visit = PageVisit::firstOrCreate(
-            ['ip_address' => $ip, 'page' => $page],
-            ['visitor_id' => $visitorId, 'user_agent' => $userAgent, 'visit_count' => 0]
-        );
+        $visit = PageVisit::where('ip_address', $ip)
+            ->where('page', $page)
+            ->whereDate('created_at', now())
+            ->first();
+
+        if (!$visit) {
+            $visit = PageVisit::create([
+                'ip_address' => $ip,
+                'page' => $page,
+                'visitor_id' => $visitorId,
+                'user_agent' => $userAgent,
+                'visit_count' => 0,
+            ]);
+        }
 
 
         if ($visit->visit_count >= 5) {

@@ -99,7 +99,7 @@ class PrintController extends Controller
 
     public function redirect(Request $request): RedirectResponse
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         Auth::guard('web')->logout();
 

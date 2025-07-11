@@ -9,11 +9,33 @@ console.log('='.repeat(50));
 console.log('📦 Building Laravel frontend...');
 try {
   process.chdir('..');
+  
+  // First try to install/update dependencies
+  console.log('📦 Updating dependencies...');
+  execSync('npm install', { stdio: 'inherit' });
+  
+  // Then build
+  console.log('🔨 Building frontend...');
   execSync('npm run build', { stdio: 'inherit' });
   console.log('✅ Frontend build completed');
 } catch (error) {
   console.error('❌ Frontend build failed:', error.message);
-  process.exit(1);
+  console.log('💡 Trying alternative build approach...');
+  
+  try {
+    // Try clearing cache and rebuilding
+    execSync('rm -rf node_modules/.vite', { stdio: 'inherit' });
+    execSync('npm run build', { stdio: 'inherit' });
+    console.log('✅ Frontend build completed with alternative approach');
+  } catch (retryError) {
+    console.error('❌ Alternative build also failed:', retryError.message);
+    console.log('');
+    console.log('🔧 Manual fix required:');
+    console.log('1. Check Node.js version (should be 18+)');
+    console.log('2. Try: rm -rf node_modules && npm install');
+    console.log('3. Try: npm run build');
+    process.exit(1);
+  }
 }
 
 // Step 2: Copy frontend build to desktop app
@@ -42,7 +64,7 @@ try {
     <meta name="csrf-token" content="">
     <script>
         window.APP_CONFIG = {
-            SERVER_URL: 'https://your-laravel-server.com',
+            SERVER_URL: 'https://cetakcerdas.com',
             LOCAL_MODE: true,
             PYTHON_SERVICE_URL: 'http://127.0.0.1:9006'
         };
@@ -90,7 +112,15 @@ if (!fs.existsSync(pythonServicePath)) {
 
 try {
   // Change to FastAPI directory and build executable
-  process.chdir('../fastapi/pdf_analyzer');
+  const fastapiPath = path.resolve(__dirname, '../fastapi/pdf_analyzer');
+  console.log(`🔍 Looking for FastAPI directory at: ${fastapiPath}`);
+  
+  if (!fs.existsSync(fastapiPath)) {
+    throw new Error(`FastAPI directory not found: ${fastapiPath}`);
+  }
+  
+  console.log(`📁 Changing to FastAPI directory: ${fastapiPath}`);
+  process.chdir(fastapiPath);
   
   // Install requirements if needed
   console.log('📦 Installing Python requirements...');

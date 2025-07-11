@@ -126,7 +126,7 @@ desktop-app/
 Buat file `.env` di directory `desktop-app`:
 
 ```env
-SERVER_URL=https://your-laravel-server.com
+SERVER_URL=https://cetakcerdas.com
 PYTHON_PORT=9006
 LOCAL_PORT=3001
 LOG_LEVEL=info

@@ -10,9 +10,9 @@ const fetch = require('node-fetch');
 
 // Configuration
 const CONFIG = {
-  SERVER_URL: process.env.SERVER_URL || 'https://your-laravel-server.com', // Replace with your actual server URL
+  SERVER_URL: process.env.SERVER_URL || 'https://cetakcerdas.com',
   LOCAL_PORT: 3001,
-  PYTHON_PORT: 9006,
+  PYTHON_PORT: 9006, // Must match the hardcoded port in Python executable
   isDev: process.argv.includes('--dev')
 };
 
@@ -44,18 +44,13 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:8000');
     mainWindow.webContents.openDevTools();
   } else {
-    // Production mode - load from local server
-    mainWindow.loadURL(`http://localhost:${CONFIG.LOCAL_PORT}`);
+    // Production mode - show loading screen first, actual app loads after services start
+    showLoadingMessage();
   }
 
   // Show window when ready
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
-    
-    if (!CONFIG.isDev) {
-      // Show loading message
-      showLoadingMessage();
-    }
   });
 
   // Handle window closed
@@ -118,7 +113,7 @@ function showLoadingMessage() {
     <body>
         <div class="loading-container">
             <div class="spinner"></div>
-            <h2>Print Management System</h2>
+            <h2>Cetak Cerdas</h2>
             <p>Starting services...</p>
         </div>
     </body>
@@ -141,36 +136,71 @@ function startPythonService() {
 
     console.log('Starting Python service:', pythonExePath);
     
-    pythonProcess = spawn(pythonExePath, ['--mode', 'server', '--host', '127.0.0.1', '--port', CONFIG.PYTHON_PORT.toString()], {
-      stdio: ['pipe', 'pipe', 'pipe']
+    // Run without arguments - the executable will auto-start server on port 9006
+    pythonProcess = spawn(pythonExePath, [], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      detached: false,
+      shell: false
     });
 
     pythonProcess.stdout.on('data', (data) => {
-      console.log('Python service:', data.toString());
+      console.log('Python stdout:', data.toString());
     });
 
     pythonProcess.stderr.on('data', (data) => {
-      console.error('Python service error:', data.toString());
+      console.log('Python stderr:', data.toString());
     });
 
     pythonProcess.on('close', (code) => {
       console.log('Python service exited with code:', code);
     });
 
-    // Wait for service to be ready
-    setTimeout(() => {
-      checkPythonService()
-        .then(() => resolve())
-        .catch(() => reject(new Error('Python service failed to start')));
-    }, 3000);
+    pythonProcess.on('error', (error) => {
+      console.error('Python process error:', error);
+    });
+
+    // Wait for service to be ready with retries
+    let attempts = 0;
+    const maxAttempts = 15; // Increased attempts
+    const checkService = async () => {
+      attempts++;
+      try {
+        const isReady = await checkPythonService();
+        if (isReady) {
+          console.log('Python service is ready');
+          resolve();
+        } else if (attempts < maxAttempts) {
+          console.log(`Python service not ready yet, attempt ${attempts}/${maxAttempts}`);
+          setTimeout(checkService, 2000); // Increased interval
+        } else {
+          console.log('Python service failed to start after multiple attempts, but continuing anyway...');
+          resolve(); // Continue even if health check fails
+        }
+      } catch (error) {
+        if (attempts < maxAttempts) {
+          console.log(`Python service check failed, attempt ${attempts}/${maxAttempts}:`, error.message);
+          setTimeout(checkService, 2000); // Increased interval
+        } else {
+          console.log('Python service health check failed, but continuing anyway...');
+          resolve(); // Continue even if health check fails
+        }
+      }
+    };
+    
+    // Start checking after longer initial delay
+    setTimeout(checkService, 5000);
   });
 }
 
 // Check if Python service is running
 async function checkPythonService() {
   try {
-    const response = await fetch(`http://127.0.0.1:${CONFIG.PYTHON_PORT}/health`);
-    return response.ok;
+    const response = await fetch(`http://127.0.0.1:${CONFIG.PYTHON_PORT}/`);
+    if (response.ok) {
+      const data = await response.json();
+      return data.status === 'online';
+    }
+    return false;
   } catch (error) {
     throw error;
   }
@@ -356,7 +386,7 @@ function createMenu() {
             dialog.showMessageBox(mainWindow, {
               type: 'info',
               title: 'About',
-              message: 'Print Management System',
+              message: 'Cetak Cerdas',
               detail: 'Desktop application for print management with local PDF processing capabilities.'
             });
           }
@@ -372,13 +402,17 @@ function createMenu() {
 // App event handlers
 app.whenReady().then(async () => {
   try {
+    createWindow(); // Create window first
+    
     if (!CONFIG.isDev) {
       // Start services in production mode
       await startPythonService();
       await startLocalServer();
+      
+      // After services are ready, load the actual application
+      console.log('All services ready, loading application...');
+      mainWindow.loadURL(`http://localhost:${CONFIG.LOCAL_PORT}`);
     }
-    
-    createWindow();
   } catch (error) {
     console.error('Failed to start services:', error);
     dialog.showErrorBox('Startup Error', `Failed to start application services: ${error.message}`);

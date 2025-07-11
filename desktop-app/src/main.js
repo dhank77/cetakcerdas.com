@@ -1,17 +1,16 @@
-const { app, BrowserWindow, Menu, dialog, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, dialog, shell } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
+const fetch = require('node-fetch');
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
-const FormData = require('form-data');
-const fetch = require('node-fetch');
+const os = require('os');
 
 // Configuration
 const CONFIG = {
   SERVER_URL: process.env.SERVER_URL || 'https://cetakcerdas.com',
-  LOCAL_PORT: 3001,
   PYTHON_PORT: 9006, // Must match the hardcoded port in Python executable
   isDev: process.argv.includes('--dev')
 };
@@ -19,6 +18,7 @@ const CONFIG = {
 let mainWindow;
 let pythonProcess;
 let localServer;
+let laravelProcess;
 
 // Create the main application window
 function createWindow() {
@@ -44,8 +44,8 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:8000');
     mainWindow.webContents.openDevTools();
   } else {
-    // Production mode - show loading screen first, actual app loads after services start
-    showLoadingMessage();
+    // Production mode - load cetakcerdas.com directly
+    mainWindow.loadURL(CONFIG.SERVER_URL);
   }
 
   // Show window when ready
@@ -66,64 +66,19 @@ function createWindow() {
 
   // Create application menu
   createMenu();
-}
-
-// Show loading message while services start
-function showLoadingMessage() {
-  const loadingHtml = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Loading...</title>
-        <style>
-            body {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-                margin: 0;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
-            }
-            .loading-container {
-                text-align: center;
-                padding: 2rem;
-                background: rgba(255, 255, 255, 0.1);
-                border-radius: 10px;
-                backdrop-filter: blur(10px);
-            }
-            .spinner {
-                width: 50px;
-                height: 50px;
-                border: 4px solid rgba(255, 255, 255, 0.3);
-                border-top: 4px solid white;
-                border-radius: 50%;
-                animation: spin 1s linear infinite;
-                margin: 0 auto 1rem;
-            }
-            @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-            }
-            h2 { margin: 0 0 1rem 0; }
-            p { margin: 0; opacity: 0.8; }
-        </style>
-    </head>
-    <body>
-        <div class="loading-container">
-            <div class="spinner"></div>
-            <h2>Cetak Cerdas</h2>
-            <p>Starting services...</p>
-        </div>
-    </body>
-    </html>
-  `;
   
-  mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(loadingHtml)}`);
+  // Intercept requests to handle local PDF analysis
+  mainWindow.webContents.session.webRequest.onBeforeRequest(
+    { urls: ['*://cetakcerdas.com/calculate-price', '*://www.cetakcerdas.com/calculate-price'] },
+    (details, callback) => {
+      // Redirect to local Python service for PDF analysis
+      console.log('Intercepting calculate-price request for local analysis');
+      callback({ redirectURL: `http://127.0.0.1:${CONFIG.PYTHON_PORT}/analyze-document` });
+    }
+  );
 }
 
-// Start Python service
+// Start Python service in server mode
 function startPythonService() {
   return new Promise((resolve, reject) => {
     const pythonExePath = getPythonExecutablePath();
@@ -134,77 +89,191 @@ function startPythonService() {
       return;
     }
 
-    console.log('Starting Python service:', pythonExePath);
+    console.log('Starting Python service in server mode:', pythonExePath);
     
-    // Run without arguments - the executable will auto-start server on port 9006
-    pythonProcess = spawn(pythonExePath, [], {
+    // Start Python server
+    const pythonPort = CONFIG.PYTHON_PORT + 1; // Use different port for Python server
+    pythonProcess = spawn(pythonExePath, ['--mode', 'server', '--host', '127.0.0.1', '--port', pythonPort.toString()], {
       stdio: ['ignore', 'pipe', 'pipe'],
-      detached: false,
-      shell: false
+      env: {
+        ...process.env,
+        PYTHONUNBUFFERED: '1',
+        OBJC_DISABLE_INITIALIZE_FORK_SAFETY: 'YES',
+        PYTHONDONTWRITEBYTECODE: '1'
+      }
     });
 
+    let serverReady = false;
+    
     pythonProcess.stdout.on('data', (data) => {
-      console.log('Python stdout:', data.toString());
+      const output = data.toString();
+      console.log('Python server:', output);
+      if (output.includes('Uvicorn running on') || output.includes('Server started') || output.includes('Application startup complete')) {
+        serverReady = true;
+      }
     });
 
     pythonProcess.stderr.on('data', (data) => {
-      console.log('Python stderr:', data.toString());
+      const output = data.toString();
+      console.log('Python server info:', output);
+      if (output.includes('Uvicorn running on') || output.includes('Server started') || output.includes('Application startup complete')) {
+        serverReady = true;
+      }
     });
 
     pythonProcess.on('close', (code) => {
-      console.log('Python service exited with code:', code);
+      console.log(`Python server exited with code ${code}`);
+      pythonProcess = null;
     });
 
     pythonProcess.on('error', (error) => {
-      console.error('Python process error:', error);
+      console.error('Failed to start Python server:', error);
+      reject(error);
+      return;
     });
 
-    // Wait for service to be ready with retries
-    let attempts = 0;
-    const maxAttempts = 15; // Increased attempts
-    const checkService = async () => {
-      attempts++;
-      try {
-        const isReady = await checkPythonService();
-        if (isReady) {
-          console.log('Python service is ready');
-          resolve();
-        } else if (attempts < maxAttempts) {
-          console.log(`Python service not ready yet, attempt ${attempts}/${maxAttempts}`);
-          setTimeout(checkService, 2000); // Increased interval
-        } else {
-          console.log('Python service failed to start after multiple attempts, but continuing anyway...');
-          resolve(); // Continue even if health check fails
-        }
-      } catch (error) {
-        if (attempts < maxAttempts) {
-          console.log(`Python service check failed, attempt ${attempts}/${maxAttempts}:`, error.message);
-          setTimeout(checkService, 2000); // Increased interval
-        } else {
-          console.log('Python service health check failed, but continuing anyway...');
-          resolve(); // Continue even if health check fails
-        }
+    // Wait for server to be ready, then start proxy
+    const checkReady = setInterval(() => {
+      if (serverReady) {
+        clearInterval(checkReady);
+        startProxyServer(pythonPort).then(resolve).catch(reject);
       }
-    };
-    
-    // Start checking after longer initial delay
-    setTimeout(checkService, 5000);
+    }, 50);
+
+    // Timeout after 20 seconds
+    setTimeout(() => {
+      if (!serverReady) {
+        clearInterval(checkReady);
+        // Even if we didn't detect ready state, try to start proxy anyway
+        console.log('Timeout reached, attempting to start proxy anyway...');
+        startProxyServer(pythonPort).then(resolve).catch(reject);
+      }
+    }, 20000);
   });
 }
 
-// Check if Python service is running
-async function checkPythonService() {
-  // eslint-disable-next-line no-useless-catch
-  try {
-    const response = await fetch(`http://127.0.0.1:${CONFIG.PYTHON_PORT}/`);
-    if (response.ok) {
-      const data = await response.json();
-      return data.status === 'online';
-    }
-    return false;
-  } catch (error) {
-    throw error;
-  }
+// Start proxy server that forwards requests to Python server
+function startProxyServer(pythonPort) {
+  return new Promise((resolve, reject) => {
+    const app = express();
+    app.use(cors());
+    app.use(express.json());
+
+    // Health check endpoint
+    app.get('/', (req, res) => {
+      res.json({ status: 'online', mode: 'server_proxy' });
+    });
+
+    // PDF analysis endpoint - proxy to Python server
+    app.post('/analyze-document', multer().single('file'), async (req, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        const colorThreshold = parseFloat(req.query.color_threshold) || 10.0;
+        const photoThreshold = parseFloat(req.query.photo_threshold) || 30.0;
+
+        // Forward request to Python server
+        const FormData = require('form-data');
+        const form = new FormData();
+        form.append('file', req.file.buffer, {
+          filename: req.file.originalname,
+          contentType: req.file.mimetype
+        });
+
+        const response = await fetch(`http://127.0.0.1:${pythonPort}/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`, {
+          method: 'POST',
+          body: form,
+          headers: form.getHeaders()
+        });
+
+        if (!response.ok) {
+          throw new Error(`Python server error: ${response.status} ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        res.json(result);
+
+      } catch (error) {
+        console.error('PDF analysis error:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Start proxy server
+    localServer = app.listen(CONFIG.PYTHON_PORT, '127.0.0.1', () => {
+      console.log(`Local proxy server running on port ${CONFIG.PYTHON_PORT}, forwarding to Python server on port ${pythonPort}`);
+      resolve();
+    });
+
+    localServer.on('error', (error) => {
+      console.error('Local proxy server error:', error);
+      reject(error);
+    });
+  });
+}
+
+// Start fallback proxy that forwards all requests to online service
+function startFallbackProxy() {
+  return new Promise((resolve, reject) => {
+    const app = express();
+    app.use(cors());
+    app.use(express.json());
+
+    // Health check endpoint
+    app.get('/', (req, res) => {
+      res.json({ status: 'online', mode: 'fallback_proxy' });
+    });
+
+    // PDF analysis endpoint - forward to online service
+    app.post('/analyze-document', multer().single('file'), async (req, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        const colorThreshold = parseFloat(req.query.color_threshold) || 10.0;
+        const photoThreshold = parseFloat(req.query.photo_threshold) || 30.0;
+
+        // Forward request to online FastAPI service
+        const FormData = require('form-data');
+        const form = new FormData();
+        form.append('file', req.file.buffer, {
+          filename: req.file.originalname,
+          contentType: req.file.mimetype
+        });
+
+        const response = await fetch(`${CONFIG.SERVER_URL}/api/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`, {
+          method: 'POST',
+          body: form,
+          headers: form.getHeaders()
+        });
+
+        if (!response.ok) {
+          throw new Error(`Online service error: ${response.status} ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        res.json(result);
+
+      } catch (error) {
+        console.error('PDF analysis fallback error:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Start fallback proxy server
+    localServer = app.listen(CONFIG.PYTHON_PORT, '127.0.0.1', () => {
+      console.log(`Fallback proxy server running on port ${CONFIG.PYTHON_PORT}, forwarding to online service`);
+      resolve();
+    });
+
+    localServer.on('error', (error) => {
+      console.error('Fallback proxy server error:', error);
+      reject(error);
+    });
+  });
 }
 
 // Get Python executable path
@@ -218,255 +287,6 @@ function getPythonExecutablePath() {
   const exeName = platform === 'win32' ? 'pdf_analyzer.exe' : 'pdf_analyzer';
   
   return path.join(basePath, exeName);
-}
-
-// Start local proxy server
-function startLocalServer() {
-  return new Promise((resolve, reject) => {
-    const app = express();
-    
-    app.use(cors());
-    app.use(express.json());
-    app.use(express.static(path.join(__dirname, '../frontend-build')));
-
-    // Proxy API requests to main server
-    app.use('/api', async (req, res) => {
-      try {
-        const url = `${CONFIG.SERVER_URL}${req.originalUrl}`;
-        const options = {
-          method: req.method,
-          headers: {
-            ...req.headers,
-            host: undefined // Remove host header
-          }
-        };
-
-        if (req.method !== 'GET' && req.method !== 'HEAD') {
-          options.body = JSON.stringify(req.body);
-          options.headers['content-type'] = 'application/json';
-        }
-
-        const response = await fetch(url, options);
-        const data = await response.text();
-        
-        res.status(response.status);
-        response.headers.forEach((value, key) => {
-          res.set(key, value);
-        });
-        res.send(data);
-      } catch (error) {
-        console.error('Proxy error:', error);
-        res.status(500).json({ error: 'Proxy error' });
-      }
-    });
-
-    // Handle PDF analysis locally with price calculation
-    app.post('/calculate-price', multer().single('file'), async (req, res) => {
-      try {
-        if (!req.file) {
-          return res.status(400).json({ error: 'No file uploaded' });
-        }
-
-        const slug = req.body.slug || 'testing';
-        const colorThreshold = parseFloat(req.body.color_threshold) || 20.0;
-        const photoThreshold = parseFloat(req.body.photo_threshold) || 30.0;
-
-        // Default price settings
-        let priceSettingColor = 1000;
-        let priceSettingBw = 500;
-        let priceSettingPhoto = 2000;
-
-        let analysisResult;
-        let analysisMode = 'local';
-        let fallbackUsed = false;
-
-        try {
-          // Try local analysis first (up to 50MB)
-          console.log('Attempting local PDF analysis...');
-          
-          const formData = new FormData();
-          formData.append('file', req.file.buffer, req.file.originalname);
-
-          const response = await fetch(
-            `http://127.0.0.1:${CONFIG.PYTHON_PORT}/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`,
-            {
-              method: 'POST',
-              body: formData,
-              timeout: 30000
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error(`Local Python service error: ${response.status}`);
-          }
-
-          analysisResult = await response.json();
-          console.log('Local analysis successful');
-
-        } catch (localError) {
-          console.log('Local analysis failed, trying server fallback:', localError.message);
-          
-          // Fallback to server (max 2MB)
-          if (req.file.size > 2 * 1024 * 1024) {
-            throw new Error('File terlalu besar untuk server (max 2MB). Local service tidak tersedia.');
-          }
-
-          try {
-            const serverFormData = new FormData();
-            serverFormData.append('file', req.file.buffer, req.file.originalname);
-            serverFormData.append('slug', slug);
-
-            const serverResponse = await fetch(`${CONFIG.SERVER_URL}/calculate-price`, {
-              method: 'POST',
-              body: serverFormData,
-              timeout: 30000
-            });
-
-            if (!serverResponse.ok) {
-              throw new Error(`Server error: ${serverResponse.status}`);
-            }
-
-            const serverResult = await serverResponse.json();
-            
-            // Return server result directly as it already includes price calculation
-            return res.json({
-              ...serverResult,
-              analysis_mode: 'server_fallback',
-              fallback_used: true,
-              local_error: localError.message
-            });
-
-          } catch (serverError) {
-            console.error('Server fallback also failed:', serverError.message);
-            
-            // Return fallback result
-            analysisResult = {
-              total_pages: 0,
-              color_pages: 0,
-              bw_pages: 0,
-              photo_pages: 0,
-              page_details: []
-            };
-            analysisMode = 'fallback';
-            fallbackUsed = true;
-          }
-        }
-
-        // Try to get user settings from server (optional)
-        try {
-          const settingsResponse = await fetch(`${CONFIG.SERVER_URL}/api/user-settings/${slug}`, {
-            timeout: 5000
-          });
-          
-          if (settingsResponse.ok) {
-            const settings = await settingsResponse.json();
-            if (settings.success && settings.data) {
-              priceSettingColor = settings.data.color_price || priceSettingColor;
-              priceSettingBw = settings.data.bw_price || priceSettingBw;
-              priceSettingPhoto = settings.data.photo_price || priceSettingColor;
-            }
-          }
-        } catch (settingsError) {
-          console.log('Could not fetch user settings, using defaults:', settingsError.message);
-        }
-
-        // Calculate prices
-        const priceColor = (analysisResult.color_pages || 0) * priceSettingColor;
-        const priceBw = (analysisResult.bw_pages || 0) * priceSettingBw;
-        const pricePhoto = (analysisResult.photo_pages || 0) * priceSettingPhoto;
-        const totalPrice = priceColor + priceBw + pricePhoto;
-
-        // Save file temporarily (optional, for compatibility)
-        const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${req.file.originalname.split('.').pop()}`;
-        const fileUrl = `temp-uploads/${slug}/${fileName}`;
-
-        const result = {
-          price_color: priceColor,
-          price_bw: priceBw,
-          price_photo: pricePhoto,
-          total_price: totalPrice,
-          file_url: fileUrl,
-          file_name: req.file.originalname,
-          file_type: req.file.mimetype,
-          analysis_mode: analysisMode,
-          service_available: !fallbackUsed,
-          fallback_used: fallbackUsed,
-          pengaturan: {
-            threshold_warna: colorThreshold.toString(),
-            threshold_foto: photoThreshold.toString(),
-            price_setting_color: priceSettingColor,
-            price_setting_bw: priceSettingBw,
-            price_setting_photo: priceSettingPhoto,
-          },
-          ...analysisResult
-        };
-
-        console.log('Price calculation completed:', {
-          mode: analysisMode,
-          total_pages: analysisResult.total_pages,
-          total_price: totalPrice
-        });
-
-        res.json(result);
-
-      } catch (error) {
-        console.error('Calculate price error:', error);
-        res.status(500).json({
-          error: error.message,
-          analysis_mode: 'error',
-          fallback_used: true
-        });
-      }
-    });
-
-    // Handle PDF analysis locally
-    app.post('/analyze-document-local', multer().single('file'), async (req, res) => {
-      try {
-        if (!req.file) {
-          return res.status(400).json({ error: 'No file uploaded' });
-        }
-
-        const formData = new FormData();
-        formData.append('file', req.file.buffer, req.file.originalname);
-
-        const colorThreshold = req.body.color_threshold || 10.0;
-        const photoThreshold = req.body.photo_threshold || 30.0;
-
-        const response = await fetch(
-          `http://127.0.0.1:${CONFIG.PYTHON_PORT}/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`,
-          {
-            method: 'POST',
-            body: formData
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(`Python service error: ${response.status}`);
-        }
-
-        const result = await response.json();
-        res.json(result);
-      } catch (error) {
-        console.error('Local analysis error:', error);
-        res.status(500).json({ error: error.message });
-      }
-    });
-
-    // Serve frontend for all other routes
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(__dirname, '../frontend-build/index.html'));
-    });
-
-    localServer = app.listen(CONFIG.LOCAL_PORT, '127.0.0.1', () => {
-      console.log(`Local server running on port ${CONFIG.LOCAL_PORT}`);
-      resolve();
-    });
-
-    localServer.on('error', (error) => {
-      console.error('Local server error:', error);
-      reject(error);
-    });
-  });
 }
 
 // Create application menu
@@ -565,18 +385,21 @@ app.whenReady().then(async () => {
     createWindow(); // Create window first
     
     if (!CONFIG.isDev) {
-      // Start services in production mode
-      await startPythonService();
-      await startLocalServer();
-      
-      // After services are ready, load the actual application
-      console.log('All services ready, loading application...');
-      mainWindow.loadURL(`http://localhost:${CONFIG.LOCAL_PORT}`);
+      // Try to start Python service for local PDF analysis
+      try {
+        await startPythonService();
+        console.log('Python service ready, application loaded from cetakcerdas.com');
+      } catch (error) {
+        console.error('Failed to start local Python service:', error);
+        console.log('Continuing with server fallback only - all PDF analysis will use online service');
+        
+        // Start a simple proxy that always forwards to online service
+        await startFallbackProxy();
+      }
     }
   } catch (error) {
     console.error('Failed to start services:', error);
-    dialog.showErrorBox('Startup Error', `Failed to start application services: ${error.message}`);
-    app.quit();
+    console.log('Continuing with basic functionality only');
   }
 });
 
@@ -594,6 +417,9 @@ app.on('activate', () => {
 
 app.on('before-quit', () => {
   // Clean up services
+  if (laravelProcess) {
+    laravelProcess.kill();
+  }
   if (pythonProcess) {
     pythonProcess.kill();
   }

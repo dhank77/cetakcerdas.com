@@ -66,15 +66,13 @@ function createWindow() {
   // Create application menu
   createMenu();
   
-  // Intercept requests sudah dipindahkan ke endpoint yang lebih spesifik di bawah
-
-  // Intercept analyze-document-internal endpoint untuk redirect ke local Python service
+  // Intercept requests to handle local PDF analysis with price calculation
   mainWindow.webContents.session.webRequest.onBeforeRequest(
-    { urls: ['*://cetakcerdas.com/analyze-document-internal', '*://www.cetakcerdas.com/analyze-document-internal', '*://print.test/analyze-document-internal'] },
+    { urls: ['*://cetakcerdas.com/calculate-price', '*://www.cetakcerdas.com/calculate-price'] },
     (details, callback) => {
-      // Redirect to local Python service for PDF analysis
-      console.log('Intercepting analyze-document-internal request for local analysis');
-      callback({ redirectURL: `http://127.0.0.1:${CONFIG.PYTHON_PORT}/analyze-document` });
+      // Redirect to local service that includes price calculation
+      console.log('Intercepting calculate-price request for local analysis with price calculation');
+      callback({ redirectURL: `http://127.0.0.1:${CONFIG.PYTHON_PORT}/calculate-price` });
     }
   );
 }

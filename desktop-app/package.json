@@ -1,0 +1,74 @@
+{
+  "name": "cetakcerdas-desktop",
+  "version": "1.0.0",
+  "description": "Desktop application for Cetak Cerdas",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "pack": "electron-builder --dir",
+    "dist": "npm run build:frontend && electron-builder",
+    "build:frontend": "cd .. && npm run build",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "build": {
+    "appId": "com.printapp.desktop",
+    "productName": "CetakCerdas.Com",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "python-service/**/*",
+      "frontend-build/**/*",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "python-service/",
+        "to": "python-service/",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.productivity"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png",
+      "category": "Office"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Cetak Cerdas"
+    }
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "dependencies": {
+    "electron-serve": "^1.1.0",
+    "electron-store": "^8.1.0",
+    "node-fetch": "^2.7.0",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "multer": "^1.4.5-lts.1",
+    "form-data": "^4.0.0"
+  }
+}

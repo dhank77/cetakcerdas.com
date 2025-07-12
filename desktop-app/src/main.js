@@ -11,6 +11,7 @@ const multer = require('multer');
 const CONFIG = {
   SERVER_URL: process.env.SERVER_URL || 'https://cetakcerdas.com',
   PYTHON_PORT: 9006, // Must match the hardcoded port in Python executable
+  LOCAL_PORT: 3001, // Port for local proxy server
   isDev: process.argv.includes('--dev')
 };
 
@@ -59,7 +60,11 @@ function createWindow() {
 
   // Handle external links
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    // Add error handling for shell.openExternal
+    shell.openExternal(url).catch((error) => {
+      console.log('Could not open external URL:', url, error.message);
+      // Silently fail - don't crash the app
+    });
     return { action: 'deny' };
   });
 
@@ -70,9 +75,9 @@ function createWindow() {
   mainWindow.webContents.session.webRequest.onBeforeRequest(
     { urls: ['*://cetakcerdas.com/calculate-price', '*://www.cetakcerdas.com/calculate-price'] },
     (details, callback) => {
-      // Redirect to local service that includes price calculation
+      // Redirect to local proxy server that handles price calculation
       console.log('Intercepting calculate-price request for local analysis with price calculation');
-      callback({ redirectURL: `http://127.0.0.1:${CONFIG.PYTHON_PORT}/calculate-price` });
+      callback({ redirectURL: `http://127.0.0.1:${CONFIG.LOCAL_PORT}/calculate-price` });
     }
   );
 }
@@ -200,9 +205,134 @@ function startProxyServer(pythonPort) {
       }
     });
 
+    // Calculate price endpoint - includes analysis and price calculation
+    app.post('/calculate-price', multer().single('file'), async (req, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        // Get slug from form data (same as Laravel frontend)
+        const slug = req.body.slug || 'testing';
+        
+        // Default price settings (same as Laravel controller)
+        let priceSettingPhoto = 2000;
+        let priceSettingColor = 1000;
+        let priceSettingBw = 500;
+        let colorThreshold = 20;
+        let photoThreshold = 30;
+
+        // Try to get user settings from Laravel API if slug is provided
+        if (slug && slug !== 'testing') {
+          try {
+            const settingsResponse = await fetch(`${CONFIG.SERVER_URL}/api/user-settings/${slug}`);
+            if (settingsResponse.ok) {
+              const settingsData = await settingsResponse.json();
+              if (settingsData.success && settingsData.data) {
+                const settings = settingsData.data;
+                priceSettingColor = settings.color_price || priceSettingColor;
+                priceSettingPhoto = settings.photo_price || settings.color_price || priceSettingPhoto;
+                priceSettingBw = settings.bw_price || priceSettingBw;
+                colorThreshold = settings.threshold_color || colorThreshold;
+                photoThreshold = settings.threshold_photo || photoThreshold;
+              }
+            }
+          } catch (settingsError) {
+            console.log('Could not fetch user settings, using defaults:', settingsError.message);
+          }
+        }
+
+        // Parse query parameters for custom settings (override user settings if provided)
+        if (req.query.price_setting_photo) priceSettingPhoto = parseInt(req.query.price_setting_photo);
+        if (req.query.price_setting_color) priceSettingColor = parseInt(req.query.price_setting_color);
+        if (req.query.price_setting_bw) priceSettingBw = parseInt(req.query.price_setting_bw);
+        if (req.query.threshold_color) colorThreshold = parseFloat(req.query.threshold_color);
+        if (req.query.threshold_photo) photoThreshold = parseFloat(req.query.threshold_photo);
+
+        // Forward request to Python server for analysis
+        const FormData = require('form-data');
+        const form = new FormData();
+        form.append('file', req.file.buffer, {
+          filename: req.file.originalname,
+          contentType: req.file.mimetype
+        });
+
+        const response = await fetch(`http://127.0.0.1:${pythonPort}/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`, {
+          method: 'POST',
+          body: form,
+          headers: form.getHeaders()
+        });
+
+        if (!response.ok) {
+          throw new Error(`Python server error: ${response.status} ${response.statusText}`);
+        }
+
+        const analysisResult = await response.json();
+
+        // Calculate prices based on analysis result
+        const priceColor = (analysisResult.color_pages || 0) * priceSettingColor;
+        const priceBw = (analysisResult.bw_pages || 0) * priceSettingBw;
+        const pricePhoto = (analysisResult.photo_pages || 0) * priceSettingPhoto;
+        const totalPrice = priceColor + priceBw + pricePhoto;
+
+        // Return response in same format as Laravel controller
+        res.json({
+          price_color: priceColor,
+          price_bw: priceBw,
+          price_photo: pricePhoto,
+          total_price: totalPrice,
+          file_url: null, // No file storage in desktop app
+          file_name: req.file.originalname,
+          file_type: req.file.mimetype,
+          analysis_mode: 'local_desktop',
+          service_available: true,
+          pengaturan: {
+            threshold_warna: colorThreshold.toString(),
+            threshold_foto: photoThreshold.toString(),
+            price_setting_color: priceSettingColor,
+            price_setting_bw: priceSettingBw,
+            price_setting_photo: priceSettingPhoto,
+          },
+          ...analysisResult,
+        });
+
+      } catch (error) {
+        console.error('Calculate price error:', error);
+        
+        // Fallback result (same as Laravel controller)
+        const fallbackResult = {
+          price_color: 0,
+          price_bw: 0,
+          price_photo: 0,
+          total_price: 0,
+          file_url: null,
+          file_name: req.file ? req.file.originalname : 'unknown',
+          file_type: req.file ? req.file.mimetype : 'unknown',
+          analysis_mode: 'local_desktop_fallback',
+          service_available: false,
+          pengaturan: {
+            threshold_warna: '20',
+            threshold_foto: '30',
+            price_setting_color: 1000,
+            price_setting_bw: 500,
+            price_setting_photo: 2000,
+          },
+          color_pages: 0,
+          bw_pages: 0,
+          photo_pages: 0,
+          total_pages: 0,
+          page_details: [],
+          fallback: true,
+          error: error.message
+        };
+        
+        res.status(500).json(fallbackResult);
+      }
+    });
+
     // Start proxy server
-    localServer = app.listen(CONFIG.PYTHON_PORT, '127.0.0.1', () => {
-      console.log(`Local proxy server running on port ${CONFIG.PYTHON_PORT}, forwarding to Python server on port ${pythonPort}`);
+    localServer = app.listen(CONFIG.LOCAL_PORT, '127.0.0.1', () => {
+      console.log(`Local proxy server running on port ${CONFIG.LOCAL_PORT}, forwarding to Python server on port ${pythonPort}`);
       resolve();
     });
 
@@ -262,9 +392,87 @@ function startFallbackProxy() {
       }
     });
 
+    // Calculate price endpoint - forward to online Laravel service
+    app.post('/calculate-price', multer().single('file'), async (req, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        // Forward request to online Laravel service
+        const FormData = require('form-data');
+        const form = new FormData();
+        form.append('file', req.file.buffer, {
+          filename: req.file.originalname,
+          contentType: req.file.mimetype
+        });
+
+        // Add query parameters if provided
+        const queryParams = new URLSearchParams();
+        if (req.query.slug) queryParams.append('slug', req.query.slug);
+        if (req.query.price_setting_photo) queryParams.append('price_setting_photo', req.query.price_setting_photo);
+        if (req.query.price_setting_color) queryParams.append('price_setting_color', req.query.price_setting_color);
+        if (req.query.price_setting_bw) queryParams.append('price_setting_bw', req.query.price_setting_bw);
+        if (req.query.threshold_color) queryParams.append('threshold_color', req.query.threshold_color);
+        if (req.query.threshold_photo) queryParams.append('threshold_photo', req.query.threshold_photo);
+
+        const queryString = queryParams.toString();
+        const url = `${CONFIG.SERVER_URL}/calculate-price${queryString ? '?' + queryString : ''}`;
+
+        const response = await fetch(url, {
+          method: 'POST',
+          body: form,
+          headers: form.getHeaders()
+        });
+
+        if (!response.ok) {
+          throw new Error(`Online service error: ${response.status} ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        
+        // Mark as fallback mode
+        result.analysis_mode = 'online_fallback';
+        
+        res.json(result);
+
+      } catch (error) {
+        console.error('Calculate price fallback error:', error);
+        
+        // Fallback result
+        const fallbackResult = {
+          price_color: 0,
+          price_bw: 0,
+          price_photo: 0,
+          total_price: 0,
+          file_url: null,
+          file_name: req.file ? req.file.originalname : 'unknown',
+          file_type: req.file ? req.file.mimetype : 'unknown',
+          analysis_mode: 'online_fallback_error',
+          service_available: false,
+          pengaturan: {
+            threshold_warna: '20',
+            threshold_foto: '30',
+            price_setting_color: 1000,
+            price_setting_bw: 500,
+            price_setting_photo: 2000,
+          },
+          color_pages: 0,
+          bw_pages: 0,
+          photo_pages: 0,
+          total_pages: 0,
+          page_details: [],
+          fallback: true,
+          error: error.message
+        };
+        
+        res.status(500).json(fallbackResult);
+      }
+    });
+
     // Start fallback proxy server
-    localServer = app.listen(CONFIG.PYTHON_PORT, '127.0.0.1', () => {
-      console.log(`Fallback proxy server running on port ${CONFIG.PYTHON_PORT}, forwarding to online service`);
+    localServer = app.listen(CONFIG.LOCAL_PORT, '127.0.0.1', () => {
+      console.log(`Fallback proxy server running on port ${CONFIG.LOCAL_PORT}, forwarding to online service`);
       resolve();
     });
 

@@ -57,38 +57,36 @@ class PrintController extends Controller
             $slug = $url[2];
 
             $items = json_decode($request->items);
-            if (!isset($items[0])) {
+            if (count($items) < 1) {
                 return redirect()->back()->with([
                     'type' => 'error',
                     'messages' => 'Pesanan tidak valid',
                 ]);
             }
 
-            $items = $items[0];
-
             $user = User::where('slug', $slug)->first();
             abort_if(!$user, 404);
 
-            $order = $user->orders()->create([
-                'full_log' => $request->items,
-
-                'timestamp_id' => $items->timestamp,
-                'price_bw' => $items->priceBw,
-                'price_color' => $items->priceColor,
-                'price_photo' => $items->pricePhoto,
-                'total_price' => $items->totalPrice,
-                'bw_pages' => $items->bwPages,
-                'color_pages' => $items->colorPages,
-                'photo_pages' => $items->photoPages,
-                'total_pages' => $items->totalPages,
-            ]);
-
-            if (!$order) {
-                return redirect()->back()->with([
-                    'type' => 'error',
-                    'messages' => 'Terjadi kesalahan',
+            foreach ($items as $item) {
+                $user->orders()->create([
+                    'full_log' => json_encode($item),
+    
+                    'timestamp_id' => $item->timestamp,
+                    'price_bw' => $item->priceBw,
+                    'price_color' => $item->priceColor,
+                    'price_photo' => $item->pricePhoto,
+                    'total_price' => $item->totalPrice,
+                    'bw_pages' => $item->bwPages,
+                    'color_pages' => $item->colorPages,
+                    'photo_pages' => $item->photoPages,
+                    'total_pages' => $item->totalPages,
                 ]);
             }
+
+            return redirect()->back()->with([
+                'type' => 'error',
+                'messages' => 'Terjadi kesalahan',
+            ]);
         }
 
         return redirect()->back()->with([

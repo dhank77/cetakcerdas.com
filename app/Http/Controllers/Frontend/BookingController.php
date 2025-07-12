@@ -26,7 +26,7 @@ class BookingController extends Controller
         $request->validate([
             'name' => 'required|string',
             'whatsapp' => 'required|string',
-            'file' => 'required|file|mimes:pdf|max:10240',
+            'file' => 'required|file|mimes:pdf|max:2048',
             'priceSettingColor' => 'nullable',
             'priceSettingBw' => 'nullable',
             'priceSettingPhoto' => 'nullable',

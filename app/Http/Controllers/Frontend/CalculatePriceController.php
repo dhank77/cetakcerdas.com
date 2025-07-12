@@ -4,16 +4,23 @@ namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\DocumentAnalyzerService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 
 class CalculatePriceController extends Controller
 {
+    private DocumentAnalyzerService $analyzerService;
+
+    public function __construct(DocumentAnalyzerService $analyzerService)
+    {
+        $this->analyzerService = $analyzerService;
+    }
+
     public function __invoke(Request $request): JsonResponse
     {
         $request->validate([
@@ -49,43 +56,22 @@ class CalculatePriceController extends Controller
         $fullUrl = asset('storage/' . $filePath);
 
         try {
-            // Gunakan endpoint internal untuk analisis dokumen
-            // Endpoint ini bisa di-intercept oleh desktop app
-            $response = Http::asMultipart()
-                ->post(route('analyze-document-internal'), [
-                    [
-                        'name' => 'file',
-                        'contents' => file_get_contents($file),
-                        'filename' => $file->getClientOriginalName(),
-                    ],
-                    [
-                        'name' => 'color_threshold',
-                        'contents' => (string)$colorThreshold
-                    ],
-                    [
-                        'name' => 'photo_threshold', 
-                        'contents' => (string)$photoThreshold
-                    ]
-                ]);
-
-            if (!$response->successful()) {
-                throw new Exception('Document analysis failed: ' . $response->status());
-            }
-
-            $responApi = $response->json();
-
-            if (!isset($responApi['color_pages']) || !isset($responApi['bw_pages']) || !isset($responApi['photo_pages'])) {
-                throw new Exception('Invalid response format from analysis service');
-            }
+            // Gunakan service baru untuk analisis dokumen
+            $responApi = $this->analyzerService->analyzeDocument(
+                $file,
+                $colorThreshold,
+                $photoThreshold
+            );
 
             Log::info('Document Analysis Success', [
+                'mode' => $this->analyzerService->getMode(),
                 'file_name' => $file->getClientOriginalName(),
-                'total_pages' => $responApi['total_pages'] ?? 0,
-                'analysis_mode' => $responApi['analysis_mode'] ?? 'unknown'
+                'total_pages' => $responApi['total_pages'] ?? 0
             ]);
 
         } catch (\Exception $e) {
             Log::error('Document Analysis Error', [
+                'mode' => $this->analyzerService->getMode(),
                 'message' => $e->getMessage(),
                 'file_name' => $file->getClientOriginalName()
             ]);
@@ -115,6 +101,8 @@ class CalculatePriceController extends Controller
             'file_url' => $fullUrl,
             'file_name' => $file->getClientOriginalName(),
             'file_type' => $file->getClientMimeType(),
+            'analysis_mode' => $this->analyzerService->getMode(),
+            'service_available' => $this->analyzerService->isAvailable(),
             'pengaturan' => [
                 'threshold_warna' => (string)$colorThreshold,
                 'threshold_foto' => (string)$photoThreshold,

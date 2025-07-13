@@ -1,11 +1,12 @@
 import { Head, useForm } from '@inertiajs/react';
-import { LoaderCircle } from 'lucide-react';
+import { LoaderCircle, KeyRound, Lock, CheckCircle } from 'lucide-react';
 import { FormEventHandler } from 'react';
 
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import AuthLayout from '@/layouts/auth-layout';
 
 interface ResetPasswordProps {
@@ -36,63 +37,117 @@ export default function ResetPassword({ token, email }: ResetPasswordProps) {
     };
 
     return (
-        <AuthLayout title="Reset password" description="Please enter your new password below">
-            <Head title="Reset password" />
+        <AuthLayout title="Reset Password" description="Silakan masukkan password baru Anda di bawah ini">
+            <Head title="Reset Password" />
 
-            <form onSubmit={submit}>
-                <div className="grid gap-6">
-                    <div className="grid gap-2">
-                        <Label htmlFor="email">Email</Label>
-                        <Input
-                            id="email"
-                            type="email"
-                            name="email"
-                            autoComplete="email"
-                            value={data.email}
-                            className="mt-1 block w-full"
-                            readOnly
-                            onChange={(e) => setData('email', e.target.value)}
-                        />
-                        <InputError message={errors.email} className="mt-2" />
-                    </div>
+            <div className="space-y-6">
+                {/* Main Reset Password Card */}
+                <Card className="border-green-200 dark:border-green-800 dark:bg-gray-900">
+                    <CardHeader className="text-center pb-4">
+                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
+                            <KeyRound className="h-8 w-8 text-green-600 dark:text-green-400" />
+                        </div>
+                        <CardTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                            Reset Password Anda
+                        </CardTitle>
+                        <CardDescription className="text-gray-600 dark:text-gray-400">
+                            Masukkan password baru yang aman untuk akun Anda. Pastikan password mudah diingat namun sulit ditebak.
+                        </CardDescription>
+                    </CardHeader>
+                    
+                    <CardContent className="space-y-6">
+                        <form onSubmit={submit} className="space-y-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="email" className="text-gray-900 dark:text-gray-100">Alamat Email</Label>
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    name="email"
+                                    autoComplete="email"
+                                    value={data.email}
+                                    readOnly
+                                    onChange={(e) => setData('email', e.target.value)}
+                                    placeholder="email@cetakcerdas.com"
+                                    className="dark:bg-gray-800 dark:border-gray-700 bg-gray-50 dark:bg-gray-700"
+                                />
+                                <InputError message={errors.email} />
+                            </div>
 
-                    <div className="grid gap-2">
-                        <Label htmlFor="password">Password</Label>
-                        <Input
-                            id="password"
-                            type="password"
-                            name="password"
-                            autoComplete="new-password"
-                            value={data.password}
-                            className="mt-1 block w-full"
-                            autoFocus
-                            onChange={(e) => setData('password', e.target.value)}
-                            placeholder="Password"
-                        />
-                        <InputError message={errors.password} />
-                    </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="password" className="text-gray-900 dark:text-gray-100">Password Baru</Label>
+                                <Input
+                                    id="password"
+                                    type="password"
+                                    name="password"
+                                    autoComplete="new-password"
+                                    value={data.password}
+                                    autoFocus
+                                    onChange={(e) => setData('password', e.target.value)}
+                                    placeholder="Masukkan password baru"
+                                    className="dark:bg-gray-800 dark:border-gray-700"
+                                />
+                                <InputError message={errors.password} />
+                            </div>
 
-                    <div className="grid gap-2">
-                        <Label htmlFor="password_confirmation">Confirm password</Label>
-                        <Input
-                            id="password_confirmation"
-                            type="password"
-                            name="password_confirmation"
-                            autoComplete="new-password"
-                            value={data.password_confirmation}
-                            className="mt-1 block w-full"
-                            onChange={(e) => setData('password_confirmation', e.target.value)}
-                            placeholder="Confirm password"
-                        />
-                        <InputError message={errors.password_confirmation} className="mt-2" />
-                    </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="password_confirmation" className="text-gray-900 dark:text-gray-100">Konfirmasi Password Baru</Label>
+                                <Input
+                                    id="password_confirmation"
+                                    type="password"
+                                    name="password_confirmation"
+                                    autoComplete="new-password"
+                                    value={data.password_confirmation}
+                                    onChange={(e) => setData('password_confirmation', e.target.value)}
+                                    placeholder="Konfirmasi password baru"
+                                    className="dark:bg-gray-800 dark:border-gray-700"
+                                />
+                                <InputError message={errors.password_confirmation} />
+                            </div>
 
-                    <Button type="submit" className="mt-4 w-full" disabled={processing}>
-                        {processing && <LoaderCircle className="h-4 w-4 animate-spin" />}
-                        Reset password
-                    </Button>
-                </div>
-            </form>
+                            <Button 
+                                disabled={processing} 
+                                variant="default" 
+                                className="w-full bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 text-white"
+                            >
+                                {processing ? (
+                                    <>
+                                        <LoaderCircle className="h-4 w-4 animate-spin mr-2" />
+                                        Mereset Password...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Lock className="h-4 w-4 mr-2" />
+                                        Reset Password
+                                    </>
+                                )}
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
+
+                {/* Password Tips Card */}
+                <Card className="border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800">
+                    <CardContent className="pt-4">
+                        <div className="space-y-3">
+                            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 text-center">Tips Password Aman</h4>
+                            <div className="grid grid-cols-1 gap-2">
+                                <div className="flex items-center space-x-2 text-xs text-gray-600 dark:text-gray-400">
+                                    <CheckCircle className="h-3 w-3 text-green-500 dark:text-green-400 flex-shrink-0" />
+                                    <span>Minimal 8 karakter</span>
+                                </div>
+                                <div className="flex items-center space-x-2 text-xs text-gray-600 dark:text-gray-400">
+                                    <CheckCircle className="h-3 w-3 text-green-500 dark:text-green-400 flex-shrink-0" />
+                                    <span>Kombinasi huruf besar dan kecil</span>
+                                </div>
+                                <div className="flex items-center space-x-2 text-xs text-gray-600 dark:text-gray-400">
+                                    <CheckCircle className="h-3 w-3 text-green-500 dark:text-green-400 flex-shrink-0" />
+                                    <span>Sertakan angka dan simbol</span>
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
         </AuthLayout>
     );
 }

@@ -4,6 +4,7 @@ use App\Http\Controllers\Frontend\BookingController;
 use App\Http\Controllers\Frontend\CalculatePriceController;
 use App\Http\Controllers\Frontend\LandingController;
 use App\Http\Controllers\Frontend\PrintController;
+use App\Http\Controllers\SettingController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('', LandingController::class)->name('home');
@@ -23,7 +24,7 @@ Route::post('/calculate-price', CalculatePriceController::class)
     ->name('calculate-price');
 
 // API endpoint for user settings (for desktop app)
-Route::get('/api/user-settings/{slug}', [\App\Http\Controllers\SettingController::class, 'getUserSettings'])
+Route::get('/api/user-settings/{slug}', [SettingController::class, 'getUserSettings'])
     ->name('api.user-settings');
 
 require __DIR__.'/admin.php';

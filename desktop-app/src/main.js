@@ -16,9 +16,39 @@ const CONFIG = {
 };
 
 let mainWindow;
+let loadingWindow;
 let pythonProcess;
 let localServer;
 let laravelProcess;
+let servicesReady = false;
+
+// Create loading window
+function createLoadingWindow() {
+  loadingWindow = new BrowserWindow({
+    width: 400,
+    height: 300,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true
+    },
+    icon: path.join(__dirname, '../assets/icon.png'),
+    show: false
+  });
+
+  // Load loading page
+  loadingWindow.loadFile(path.join(__dirname, '../frontend-build/loading.html'));
+
+  loadingWindow.once('ready-to-show', () => {
+    loadingWindow.show();
+  });
+
+  loadingWindow.on('closed', () => {
+    loadingWindow = null;
+  });
+}
 
 // Create the main application window
 function createWindow() {
@@ -38,18 +68,21 @@ function createWindow() {
     titleBarStyle: 'default'
   });
 
-  // Load the application
+  // Load the application with login as default
   if (CONFIG.isDev) {
     // Development mode - connect to Laravel dev server
-    mainWindow.loadURL('http://localhost:8000');
+    mainWindow.loadURL('http://localhost:8000/login');
     mainWindow.webContents.openDevTools();
   } else {
-    // Production mode - load cetakcerdas.com directly
-    mainWindow.loadURL(CONFIG.SERVER_URL);
+    // Production mode - load cetakcerdas.com/login directly
+    mainWindow.loadURL(`${CONFIG.SERVER_URL}/login`);
   }
 
-  // Show window when ready
+  // Show window when ready and hide loading window
   mainWindow.once('ready-to-show', () => {
+    if (loadingWindow) {
+      loadingWindow.close();
+    }
     mainWindow.show();
   });
 
@@ -82,18 +115,33 @@ function createWindow() {
   );
 }
 
+// Update loading status
+function updateLoadingStatus(message) {
+  if (loadingWindow && loadingWindow.webContents) {
+    loadingWindow.webContents.executeJavaScript(`
+      if (window.updateStatus) {
+        window.updateStatus('${message}');
+      }
+    `);
+  }
+}
+
 // Start Python service in server mode
 function startPythonService() {
   return new Promise((resolve, reject) => {
+    updateLoadingStatus('Initializing PDF analyzer...');
+    
     const pythonExePath = getPythonExecutablePath();
     
     if (!fs.existsSync(pythonExePath)) {
       console.error('Python executable not found:', pythonExePath);
+      updateLoadingStatus('PDF analyzer not found, using online service...');
       reject(new Error('Python service executable not found'));
       return;
     }
 
     console.log('Starting Python service in server mode:', pythonExePath);
+    updateLoadingStatus('Starting PDF analyzer service...');
     
     // Start Python server
     const pythonPort = CONFIG.PYTHON_PORT + 1; // Use different port for Python server
@@ -114,6 +162,7 @@ function startPythonService() {
       console.log('Python server:', output);
       if (output.includes('Uvicorn running on') || output.includes('Server started') || output.includes('Application startup complete')) {
         serverReady = true;
+        updateLoadingStatus('PDF analyzer ready!');
       }
     });
 
@@ -122,6 +171,7 @@ function startPythonService() {
       console.log('Python server info:', output);
       if (output.includes('Uvicorn running on') || output.includes('Server started') || output.includes('Application startup complete')) {
         serverReady = true;
+        updateLoadingStatus('PDF analyzer ready!');
       }
     });
 
@@ -132,6 +182,7 @@ function startPythonService() {
 
     pythonProcess.on('error', (error) => {
       console.error('Failed to start Python server:', error);
+      updateLoadingStatus('PDF analyzer failed, using online service...');
       reject(error);
       return;
     });
@@ -140,7 +191,12 @@ function startPythonService() {
     const checkReady = setInterval(() => {
       if (serverReady) {
         clearInterval(checkReady);
-        startProxyServer(pythonPort).then(resolve).catch(reject);
+        updateLoadingStatus('Starting local services...');
+        startProxyServer(pythonPort).then(() => {
+          updateLoadingStatus('Services ready! Loading application...');
+          servicesReady = true;
+          resolve();
+        }).catch(reject);
       }
     }, 50);
 
@@ -150,7 +206,11 @@ function startPythonService() {
         clearInterval(checkReady);
         // Even if we didn't detect ready state, try to start proxy anyway
         console.log('Timeout reached, attempting to start proxy anyway...');
-        startProxyServer(pythonPort).then(resolve).catch(reject);
+        updateLoadingStatus('Timeout reached, starting anyway...');
+        startProxyServer(pythonPort).then(() => {
+          servicesReady = true;
+          resolve();
+        }).catch(reject);
       }
     }, 20000);
   });
@@ -346,6 +406,8 @@ function startProxyServer(pythonPort) {
 // Start fallback proxy that forwards all requests to online service
 function startFallbackProxy() {
   return new Promise((resolve, reject) => {
+    updateLoadingStatus('Setting up online service connection...');
+    
     const app = express();
     app.use(cors());
     app.use(express.json());
@@ -473,11 +535,14 @@ function startFallbackProxy() {
     // Start fallback proxy server
     localServer = app.listen(CONFIG.LOCAL_PORT, '127.0.0.1', () => {
       console.log(`Fallback proxy server running on port ${CONFIG.LOCAL_PORT}, forwarding to online service`);
+      updateLoadingStatus('Online service ready! Loading application...');
+      servicesReady = true;
       resolve();
     });
 
     localServer.on('error', (error) => {
       console.error('Fallback proxy server error:', error);
+      updateLoadingStatus('Service setup failed...');
       reject(error);
     });
   });
@@ -589,7 +654,8 @@ function createMenu() {
 // App event handlers
 app.whenReady().then(async () => {
   try {
-    createWindow(); // Create window first
+    // Create loading window first
+    createLoadingWindow();
     
     if (!CONFIG.isDev) {
       // Try to start Python service for local PDF analysis
@@ -603,10 +669,26 @@ app.whenReady().then(async () => {
         // Start a simple proxy that always forwards to online service
         await startFallbackProxy();
       }
+    } else {
+      // In dev mode, just mark services as ready
+      updateLoadingStatus('Development mode - Loading application...');
+      servicesReady = true;
     }
+    
+    // Wait a moment for services to fully initialize, then create main window
+    setTimeout(() => {
+      createWindow();
+    }, 1000);
+    
   } catch (error) {
     console.error('Failed to start services:', error);
     console.log('Continuing with basic functionality only');
+    updateLoadingStatus('Service setup failed, loading anyway...');
+    
+    // Still create the main window even if services fail
+    setTimeout(() => {
+      createWindow();
+    }, 2000);
   }
 });
 

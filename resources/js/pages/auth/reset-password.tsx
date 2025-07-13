@@ -68,7 +68,7 @@ export default function ResetPassword({ token, email }: ResetPasswordProps) {
                                     readOnly
                                     onChange={(e) => setData('email', e.target.value)}
                                     placeholder="email@cetakcerdas.com"
-                                    className="dark:bg-gray-800 dark:border-gray-700 bg-gray-50 dark:bg-gray-700"
+                                    className=" bg-gray-50 dark:bg-gray-700"
                                 />
                                 <InputError message={errors.email} />
                             </div>

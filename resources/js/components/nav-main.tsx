@@ -18,7 +18,7 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                             tooltip={{ children: item.title }}
                             className="group relative hover:bg-blue-50 dark:hover:bg-gray-800 data-[active=true]:bg-gradient-to-r data-[active=true]:from-blue-100 data-[active=true]:to-purple-100 dark:data-[active=true]:from-blue-900/50 dark:data-[active=true]:to-purple-900/50 data-[active=true]:text-blue-700 dark:data-[active=true]:text-blue-300 transition-all duration-200"
                         >
-                            <Link href={item.href} prefetch>
+                            <Link href={item.href} prefetch={!item.href.includes('print-redirect')}>
                                 {item.icon && <item.icon className="group-data-[active=true]:text-blue-600 dark:group-data-[active=true]:text-blue-400" />}
                                 <span className="font-medium">{item.title}</span>
                             </Link>

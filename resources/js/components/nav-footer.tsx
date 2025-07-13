@@ -20,7 +20,7 @@ export function NavFooter({
                         <SidebarMenuItem key={item.title}>
                             <SidebarMenuButton
                                 asChild
-                                isActive={page.url.startsWith(item.href)}
+                                isActive={item.routeName ? route().current(item.routeName) : page.url.startsWith(item.href)}
                                 tooltip={{ children: item.title }}
                                 className="group relative transition-all duration-200 hover:bg-blue-50 data-[active=true]:bg-gradient-to-r data-[active=true]:from-blue-100 data-[active=true]:to-purple-100 data-[active=true]:text-blue-700 dark:hover:bg-gray-800 dark:data-[active=true]:from-blue-900/50 dark:data-[active=true]:to-purple-900/50 dark:data-[active=true]:text-blue-300"
                             >

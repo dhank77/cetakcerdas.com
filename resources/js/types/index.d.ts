@@ -21,6 +21,7 @@ export interface NavItem {
     icon?: LucideIcon | null;
     isActive?: boolean;
     isPro?: boolean;
+    routeName?: string;
 }
 
 export interface Flash {
@@ -45,10 +46,11 @@ export interface User {
     slug?: string;
     pin?: number;
     avatar?: string;
+    is_premium?: boolean;
     email_verified_at: string | null;
     created_at: string;
     updated_at: string;
-    [key: string]: unknown; 
+    [key: string]: unknown;
 }
 
 export interface Setting {

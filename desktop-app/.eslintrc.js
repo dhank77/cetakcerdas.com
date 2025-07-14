@@ -17,7 +17,7 @@ module.exports = {
   },
   overrides: [
     {
-      files: ['build-safe.js', 'verify-build.js', 'test-build.js', 'src/main.js'],
+      files: ['build-safe.js', 'build-simple.js', 'verify-build.js', 'test-build.js', 'src/main.js'],
       rules: {
         // Allow CommonJS require in build scripts and main process
         'import/no-commonjs': 'off',

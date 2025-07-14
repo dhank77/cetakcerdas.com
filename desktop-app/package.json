@@ -11,9 +11,12 @@
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux",
     "build:safe": "node build-safe.js",
+    "build:simple": "node build-simple.js",
+    "build:antivirus-safe": "node build-antivirus-safe.js",
     "verify": "node verify-build.js",
     "test:build": "node test-build.js",
     "build:complete": "npm run test:build && npm run build:safe && npm run verify",
+    "build:production": "npm run build:antivirus-safe && npm run verify",
     "pack": "electron-builder --dir",
     "dist": "npm run build:frontend && electron-builder",
     "build:frontend": "cd .. && npm run build",
@@ -26,6 +29,8 @@
     "directories": {
       "output": "dist"
     },
+    "buildDependenciesFromSource": false,
+    "nodeGypRebuild": false,
     "files": [
       "src/**/*",
       "assets/**/*",
@@ -100,9 +105,9 @@
       "deleteAppDataOnUninstall": true,
       "runAfterFinish": true,
       "menuCategory": "Office",
-      "include": "build/installer.nsh"
+      "include": null
     },
-    "compression": "normal",
+    "compression": "maximum",
     "removePackageScripts": true,
     "buildDependenciesFromSource": false
   },

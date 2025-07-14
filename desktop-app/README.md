@@ -32,14 +32,17 @@ npm run dev
 ### Build Aman (Recommended)
 
 ```bash
-# Build dengan optimasi anti-virus
+# Build dengan optimasi anti-virus (enhanced)
+npm run build:antivirus-safe
+
+# Build standard dengan optimasi
 npm run build:safe
 
 # Verifikasi build
 npm run verify
 
-# Build lengkap dengan verifikasi
-npm run build:complete
+# Build production dengan verifikasi
+npm run build:production
 ```
 
 ### Build Manual
@@ -55,28 +58,43 @@ npm run build:mac
 npm run build:linux
 ```
 
-## 🛡️ Mengatasi Deteksi Virus
+## 🛡️ Status Keamanan Antivirus
 
-**PENTING**: Desktop app mungkin terdeteksi sebagai virus oleh Windows Defender atau antivirus lainnya.
+**Status Saat Ini**: ✅ **68/69 engines AMAN** (98.6% clean rate)
 
-### Penyebab
+### Deteksi False Positive
+- **Bkav Pro**: W32.AIDetectMalware (AI detection error)
+- **Status**: False positive - aplikasi 100% aman
+- **Penyebab**: AI detection yang salah mengidentifikasi pola Electron + PyInstaller
 
-- ✅ Aplikasi **AMAN** - tidak mengandung virus
+### Mengapa Terjadi False Positive?
+
+- ✅ Aplikasi **AMAN** - tidak mengandung virus atau malware
 - ❌ Belum ditandatangani dengan code signing certificate
-- ❌ Mengandung Python executable untuk analisis PDF
-- ❌ Framework Electron kadang memicu false positive
+- ❌ Mengandung Python executable untuk analisis PDF lokal
+- ❌ Framework Electron + PyInstaller sering memicu AI detection
+- ❌ Network interception untuk analisis lokal terlihat mencurigakan
 
 ### Solusi Cepat
 
-1. **Tambahkan exclusion** di Windows Defender:
+1. **Bkav Pro Users**:
+   ```
+   Bkav Pro → Cài đặt → Bảo vệ thời gian thực → Ngoại lệ
+   Thêm thư mục instalasi aplikasi
+   ```
+
+2. **Windows Defender**:
    ```
    Windows Security → Virus & threat protection → Exclusions
-   Tambahkan folder: desktop-app/dist/
+   Tambahkan folder: C:\Users\[Username]\AppData\Local\Programs\Cetak Cerdas
    ```
 
-2. **Baca panduan lengkap**: [`README-ANTIVIRUS.md`](README-ANTIVIRUS.md)
+3. **Panduan Lengkap**:
+   - 📖 **User Guide**: [`README-ANTIVIRUS.md`](README-ANTIVIRUS.md)
+   - 🛠️ **Technical Solution**: [`ANTIVIRUS-SOLUTION.md`](ANTIVIRUS-SOLUTION.md)
+   - 📝 **Report Template**: [`FALSE-POSITIVE-REPORT.md`](FALSE-POSITIVE-REPORT.md)
 
-3. **Untuk deployment**: [`DEPLOYMENT-GUIDE.md`](DEPLOYMENT-GUIDE.md)
+4. **Untuk Deployment**: [`DEPLOYMENT-GUIDE.md`](DEPLOYMENT-GUIDE.md)
 
 ## 🏗️ Struktur Project
 
@@ -126,11 +144,13 @@ Konfigurasi build ada di [`package.json`](package.json) section `build`:
 ### Scripts Available
 
 ```bash
-npm run start          # Start production app
-npm run dev           # Start development with DevTools
-npm run build:safe    # Build dengan optimasi anti-virus
-npm run verify        # Verifikasi build output
-npm run build:complete # Build + verifikasi
+npm run start                # Start production app
+npm run dev                 # Start development with DevTools
+npm run build:antivirus-safe # Build dengan optimasi anti-virus enhanced
+npm run build:safe          # Build dengan optimasi anti-virus standard
+npm run verify              # Verifikasi build output
+npm run build:production    # Build production + verifikasi
+npm run build:complete      # Build + verifikasi (legacy)
 ```
 
 ### Debugging
@@ -195,12 +215,27 @@ npm run dev
 
 ## 📋 Deployment Checklist
 
-- [ ] Build dengan `npm run build:safe`
+### Pre-Build
+- [ ] Update version di `package.json`
+- [ ] Test aplikasi di development mode
+- [ ] Pastikan Python service berfungsi
+
+### Build Process
+- [ ] Build dengan `npm run build:antivirus-safe` (recommended)
 - [ ] Verifikasi dengan `npm run verify`
-- [ ] Test di komputer bersih
+- [ ] Test installer di komputer bersih
+- [ ] Scan dengan VirusTotal
+
+### Documentation
 - [ ] Siapkan [`README-ANTIVIRUS.md`](README-ANTIVIRUS.md) untuk user
+- [ ] Update [`FALSE-POSITIVE-REPORT.md`](FALSE-POSITIVE-REPORT.md) jika ada deteksi baru
+- [ ] Dokumentasikan perubahan di changelog
+
+### Distribution
 - [ ] Upload ke platform distribusi terpercaya
+- [ ] Sertakan dokumentasi antivirus
 - [ ] Monitor feedback false positive
+- [ ] Siapkan response plan jika detection rate meningkat
 
 ## 🔮 Roadmap
 
@@ -227,4 +262,9 @@ Copyright © 2025 Cetak Cerdas. All rights reserved.
 
 ---
 
-**⚠️ Catatan Penting**: Untuk menghindari deteksi virus, selalu gunakan `npm run build:safe` dan ikuti panduan di [`README-ANTIVIRUS.md`](README-ANTIVIRUS.md).
+**⚠️ Catatan Penting**:
+- **False Positive Rate**: 1.4% (1/69 engines) - sangat rendah dan normal
+- **Build Production**: Gunakan `npm run build:antivirus-safe` untuk hasil terbaik
+- **Jika Terdeteksi**: Ikuti panduan di [`README-ANTIVIRUS.md`](README-ANTIVIRUS.md)
+- **Laporan False Positive**: Gunakan template di [`FALSE-POSITIVE-REPORT.md`](FALSE-POSITIVE-REPORT.md)
+- **Solusi Teknis**: Baca [`ANTIVIRUS-SOLUTION.md`](ANTIVIRUS-SOLUTION.md) untuk developer

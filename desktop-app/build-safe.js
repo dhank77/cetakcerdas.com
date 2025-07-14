@@ -45,12 +45,14 @@ try {
 console.log('🚀 Building Electron application...');
 try {
   // Build for Windows with optimizations
-  execSync('npx electron-builder --win --x64 --publish=never', { 
+  execSync('npx electron-builder --win --x64 --publish=never', {
     stdio: 'inherit',
     env: {
       ...process.env,
       CSC_IDENTITY_AUTO_DISCOVERY: 'false', // Disable code signing auto-discovery
-      ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: 'true'
+      ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: 'true',
+      ELECTRON_BUILDER_CACHE: 'false', // Disable cache to avoid VM issues
+      USE_HARD_LINKS: 'false' // Disable hard links for cross-platform compatibility
     }
   });
   

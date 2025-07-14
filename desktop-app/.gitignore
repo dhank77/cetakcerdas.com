@@ -9,6 +9,7 @@ package-lock.json
 dist/
 build/
 out/
+false/
 
 # Frontend build files (generated from parent project)
 frontend-build/assets

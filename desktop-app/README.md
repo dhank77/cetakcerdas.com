@@ -1,253 +1,230 @@
-# Print Management System - Desktop Application
+# Cetak Cerdas Desktop App
 
-Desktop application untuk sistem manajemen print yang menjalankan Python service secara lokal untuk mengurangi beban server, sambil tetap terhubung ke server utama untuk semua fungsi lainnya.
+Desktop application untuk sistem manajemen cetak dengan kemampuan analisis PDF lokal.
 
-## 🎯 Tujuan
+## 🚀 Quick Start
 
-- **Python Lokal**: Menjalankan PDF analyzer secara lokal untuk mengurangi beban server
-- **Online Connection**: Tetap terhubung ke server Laravel untuk semua fungsi lainnya
-- **Desktop Experience**: Memberikan pengalaman aplikasi desktop yang native
-- **Easy Installation**: Mudah diinstall sebagai .exe di laptop pengguna
+### Prerequisites
 
-## 🏗️ Arsitektur
-
-```
-Desktop App (Electron)
-├── Frontend (Laravel Build)
-├── Python Service (Local PDF Analyzer)
-└── Proxy Server (Connect to Main Laravel Server)
-```
-
-## 📋 Prerequisites
-
-### Untuk Development:
 - Node.js 18+ 
-- Python 3.8+
 - npm atau yarn
+- Python service (sudah termasuk dalam bundle)
 
-### Untuk Building:
-- Semua requirements di atas
-- PyInstaller (untuk Python executable)
-- Electron Builder
-
-## 🚀 Setup Development
-
-### 1. Install Dependencies
+### Installation
 
 ```bash
-# Install Node.js dependencies
+# Clone repository
+git clone [repository-url]
 cd desktop-app
+
+# Install dependencies
 npm install
 
-# Install Python dependencies
-cd ../fastapi/pdf_analyzer
-pip install -r requirements.txt
-```
+# Build frontend
+npm run build:frontend
 
-### 2. Configure Server URL
-
-Edit file [`config.js`](config.js) dan ubah `SERVER_URL`:
-
-```javascript
-SERVER_URL: 'https://your-actual-laravel-server.com',
-```
-
-### 3. Build Laravel Frontend
-
-```bash
-# Dari root directory Laravel
-npm run build
-```
-
-### 4. Run Development Mode
-
-```bash
-# Dari desktop-app directory
+# Start development
 npm run dev
 ```
 
-## 🔨 Building for Production
+## 📦 Building for Production
 
-### 1. Automated Build
+### Build Aman (Recommended)
 
 ```bash
-# Dari desktop-app directory
-node build-script.js
+# Build dengan optimasi anti-virus
+npm run build:safe
+
+# Verifikasi build
+npm run verify
+
+# Build lengkap dengan verifikasi
+npm run build:complete
 ```
 
-Script ini akan:
-- Build Laravel frontend
-- Copy assets ke desktop app
-- Build Python executable
-- Create application icons
-
-### 2. Install Dependencies
+### Build Manual
 
 ```bash
-npm install
-```
-
-### 3. Build Desktop App
-
-```bash
-# Build untuk Windows
+# Windows
 npm run build:win
 
-# Build untuk macOS
+# macOS  
 npm run build:mac
 
-# Build untuk Linux
+# Linux
 npm run build:linux
-
-# Build untuk semua platform
-npm run dist
 ```
 
-## 📁 Struktur File
+## 🛡️ Mengatasi Deteksi Virus
+
+**PENTING**: Desktop app mungkin terdeteksi sebagai virus oleh Windows Defender atau antivirus lainnya.
+
+### Penyebab
+
+- ✅ Aplikasi **AMAN** - tidak mengandung virus
+- ❌ Belum ditandatangani dengan code signing certificate
+- ❌ Mengandung Python executable untuk analisis PDF
+- ❌ Framework Electron kadang memicu false positive
+
+### Solusi Cepat
+
+1. **Tambahkan exclusion** di Windows Defender:
+   ```
+   Windows Security → Virus & threat protection → Exclusions
+   Tambahkan folder: desktop-app/dist/
+   ```
+
+2. **Baca panduan lengkap**: [`README-ANTIVIRUS.md`](README-ANTIVIRUS.md)
+
+3. **Untuk deployment**: [`DEPLOYMENT-GUIDE.md`](DEPLOYMENT-GUIDE.md)
+
+## 🏗️ Struktur Project
 
 ```
 desktop-app/
 ├── src/
 │   ├── main.js          # Main Electron process
-│   └── preload.js       # Preload script untuk security
-├── assets/              # Application icons
-├── frontend-build/      # Laravel frontend assets
-├── python-service/      # Python executable
-├── package.json         # Node.js dependencies
-├── config.js           # Application configuration
-├── build-script.js     # Build preparation script
-└── README.md           # Documentation
+│   └── preload.js       # Preload script
+├── assets/
+│   ├── icon.ico         # Windows icon
+│   ├── icon.icns        # macOS icon
+│   └── icon.png         # Linux icon
+├── python-service/
+│   └── pdf_analyzer.exe # Python service untuk analisis PDF
+├── frontend-build/      # Built Laravel frontend
+├── build/
+│   ├── installer.nsh    # Custom NSIS installer script
+│   ├── app.manifest     # Windows app manifest
+│   └── version.rc       # Version resource
+├── build-safe.js        # Script build yang aman
+├── verify-build.js      # Script verifikasi build
+└── dist/               # Output build
 ```
 
-## ⚙️ Configuration
+## ⚙️ Konfigurasi
 
 ### Environment Variables
 
-Buat file `.env` di directory `desktop-app`:
+```bash
+# Development
+SERVER_URL=http://localhost:8000
 
-```env
+# Production  
 SERVER_URL=https://cetakcerdas.com
-PYTHON_PORT=9006
-LOCAL_PORT=3001
-LOG_LEVEL=info
 ```
 
-### Laravel Server Configuration
+### Build Configuration
 
-Pastikan server Laravel Anda mengizinkan CORS dari desktop app:
+Konfigurasi build ada di [`package.json`](package.json) section `build`:
 
-```php
-// config/cors.php
-'allowed_origins' => [
-    'http://localhost:3001',
-    'app://*', // Untuk Electron
-],
+- **Windows**: NSIS installer dengan metadata lengkap
+- **macOS**: DMG dengan code signing disabled
+- **Linux**: AppImage
+
+## 🔧 Development
+
+### Scripts Available
+
+```bash
+npm run start          # Start production app
+npm run dev           # Start development with DevTools
+npm run build:safe    # Build dengan optimasi anti-virus
+npm run verify        # Verifikasi build output
+npm run build:complete # Build + verifikasi
 ```
 
-## 🔧 Troubleshooting
+### Debugging
 
-### Python Service Tidak Start
+```bash
+# Development mode dengan DevTools
+npm run dev
 
-1. Pastikan Python executable ada di `python-service/`
-2. Check permissions (Unix: `chmod +x python-service/pdf_analyzer`)
-3. Test manual: `./python-service/pdf_analyzer --mode server`
+# Check logs
+# Windows: %APPDATA%/Cetak Cerdas/logs/
+# macOS: ~/Library/Logs/Cetak Cerdas/
+# Linux: ~/.config/Cetak Cerdas/logs/
+```
 
-### Frontend Tidak Load
+## 🐛 Troubleshooting
 
-1. Pastikan `SERVER_URL` sudah benar di `config.js`
-2. Check network connection
-3. Verify CORS settings di server Laravel
+### Build Issues
 
-### Build Gagal
+1. **Python service not found**:
+   ```bash
+   # Pastikan file ada
+   ls -la python-service/pdf_analyzer.exe
+   ```
 
-1. Pastikan semua dependencies terinstall
-2. Check Python dan Node.js versions
-3. Run `node build-script.js` untuk debug
+2. **Icon files missing**:
+   ```bash
+   # Pastikan semua icon ada
+   ls -la assets/
+   ```
 
-## 📦 Distribution
+3. **Frontend build failed**:
+   ```bash
+   # Build manual
+   cd ..
+   npm run build
+   cd desktop-app
+   ```
 
-### Windows (.exe)
+### Runtime Issues
 
-File installer akan dibuat di `dist/Print Management System Setup.exe`
+1. **App tidak start**:
+   - Periksa console untuk error
+   - Pastikan port 3001 dan 9007 tidak digunakan
+   - Restart dengan `npm run dev`
 
-### macOS (.dmg)
+2. **PDF analysis tidak bekerja**:
+   - Python service mungkin tidak start
+   - Fallback ke online service otomatis
+   - Periksa log di DevTools
 
-File installer akan dibuat di `dist/Print Management System.dmg`
+### Antivirus Issues
 
-### Linux (.AppImage)
+1. **Installer terdeteksi virus**:
+   - Baca [`README-ANTIVIRUS.md`](README-ANTIVIRUS.md)
+   - Tambahkan exclusion di antivirus
+   - Submit false positive report
 
-File executable akan dibuat di `dist/Print Management System.AppImage`
+2. **App tidak bisa dijalankan**:
+   - Tambahkan folder instalasi ke exclusion
+   - Disable real-time protection sementara
+   - Install ulang setelah exclusion ditambahkan
 
-## 🔄 Update Process
+## 📋 Deployment Checklist
 
-### Manual Update
-1. Download installer baru
-2. Uninstall versi lama
-3. Install versi baru
+- [ ] Build dengan `npm run build:safe`
+- [ ] Verifikasi dengan `npm run verify`
+- [ ] Test di komputer bersih
+- [ ] Siapkan [`README-ANTIVIRUS.md`](README-ANTIVIRUS.md) untuk user
+- [ ] Upload ke platform distribusi terpercaya
+- [ ] Monitor feedback false positive
 
-### Auto Update (Future)
-- Implementasi auto-updater menggunakan `electron-updater`
-- Server update terpisah untuk distribusi updates
+## 🔮 Roadmap
 
-## 🛡️ Security
+### Short Term
+- [ ] Code signing certificate
+- [ ] Auto-updater
+- [ ] Improved error handling
 
-- **No Node Integration**: Frontend tidak memiliki akses langsung ke Node.js
-- **Context Isolation**: Renderer process terisolasi
-- **Preload Script**: API terbatas melalui preload script
-- **HTTPS Only**: Semua komunikasi ke server menggunakan HTTPS
-
-## 📊 Performance
-
-### Optimizations
-- **Local PDF Processing**: Mengurangi beban server
-- **Asset Caching**: Frontend assets di-cache lokal
-- **Lazy Loading**: Load components sesuai kebutuhan
-
-### Resource Usage
-- **Memory**: ~100-200MB (tergantung usage)
-- **Disk**: ~150-300MB (termasuk Python runtime)
-- **CPU**: Minimal saat idle, tinggi saat PDF processing
-
-## 🐛 Known Issues
-
-1. **First Launch Slow**: Python service butuh waktu untuk start
-2. **Large PDF Files**: Memory usage tinggi untuk file besar
-3. **Network Dependency**: Butuh internet untuk fungsi utama
-
-## 🤝 Contributing
-
-1. Fork repository
-2. Create feature branch
-3. Make changes
-4. Test thoroughly
-5. Submit pull request
-
-## 📄 License
-
-[Your License Here]
+### Long Term  
+- [ ] Multi-language support
+- [ ] Plugin system
+- [ ] Cloud sync
 
 ## 📞 Support
 
-Untuk support dan bug reports:
-- Email: [your-email@domain.com]
-- Issues: [GitHub Issues URL]
+- **Email**: support@cetakcerdas.com
+- **Website**: https://cetakcerdas.com
+- **Issues**: [GitHub Issues]
+- **Documentation**: [`DEPLOYMENT-GUIDE.md`](DEPLOYMENT-GUIDE.md)
+
+## 📄 License
+
+Copyright © 2025 Cetak Cerdas. All rights reserved.
 
 ---
 
-## 🚀 Quick Start Commands
-
-```bash
-# Setup
-git clone [repository]
-cd desktop-app
-npm install
-node build-script.js
-
-# Development
-npm run dev
-
-# Production Build
-npm run dist
-
-# Test Python Service
-./python-service/pdf_analyzer --mode server
+**⚠️ Catatan Penting**: Untuk menghindari deteksi virus, selalu gunakan `npm run build:safe` dan ikuti panduan di [`README-ANTIVIRUS.md`](README-ANTIVIRUS.md).

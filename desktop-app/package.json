@@ -10,14 +10,18 @@
     "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux",
+    "build:safe": "node build-safe.js",
+    "verify": "node verify-build.js",
+    "build:complete": "npm run build:safe && npm run verify",
     "pack": "electron-builder --dir",
     "dist": "npm run build:frontend && electron-builder",
     "build:frontend": "cd .. && npm run build",
     "postinstall": "electron-builder install-app-deps"
   },
   "build": {
-    "appId": "com.printapp.desktop",
-    "productName": "CetakCerdas.Com",
+    "appId": "com.cetakcerdas.desktop",
+    "productName": "Cetak Cerdas",
+    "copyright": "Copyright © 2025 Cetak Cerdas",
     "directories": {
       "output": "dist"
     },
@@ -26,7 +30,9 @@
       "assets/**/*",
       "python-service/**/*",
       "frontend-build/**/*",
-      "node_modules/**/*"
+      "node_modules/**/*",
+      "!node_modules/.cache",
+      "!**/*.map"
     ],
     "extraResources": [
       {
@@ -36,27 +42,68 @@
       }
     ],
     "win": {
-      "target": "nsis",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
       "icon": "assets/icon.ico",
-      "requestedExecutionLevel": "asInvoker"
+      "requestedExecutionLevel": "asInvoker",
+      "publisherName": "Cetak Cerdas",
+      "verifyUpdateCodeSignature": false,
+      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "fileAssociations": [
+        {
+          "ext": "pdf",
+          "name": "PDF Document",
+          "description": "PDF Document for Print Analysis",
+          "mimeType": "application/pdf"
+        }
+      ]
     },
     "mac": {
-      "target": "dmg",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
       "icon": "assets/icon.icns",
-      "category": "public.app-category.productivity"
+      "category": "public.app-category.productivity",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
     },
     "linux": {
-      "target": "AppImage",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        }
+      ],
       "icon": "assets/icon.png",
-      "category": "Office"
+      "category": "Office",
+      "synopsis": "Print Management System with PDF Analysis",
+      "description": "Desktop application for print cost calculation and PDF document analysis"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
+      "allowElevation": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Cetak Cerdas"
-    }
+      "shortcutName": "Cetak Cerdas",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "deleteAppDataOnUninstall": true,
+      "runAfterFinish": true,
+      "menuCategory": "Office",
+      "include": "build/installer.nsh"
+    },
+    "compression": "normal",
+    "removePackageScripts": true,
+    "buildDependenciesFromSource": false
   },
   "devDependencies": {
     "electron": "^28.0.0",

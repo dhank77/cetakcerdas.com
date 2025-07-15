@@ -133,11 +133,30 @@ function startPythonService() {
     
     const pythonExePath = getPythonExecutablePath();
     
+    console.log('Platform:', process.platform);
+    console.log('Python executable path:', pythonExePath);
+    
     if (!fs.existsSync(pythonExePath)) {
       console.error('Python executable not found:', pythonExePath);
+      console.error('Current working directory:', process.cwd());
+      console.error('__dirname:', __dirname);
+      console.error('process.resourcesPath:', process.resourcesPath);
       updateLoadingStatus('PDF analyzer not found, using online service...');
       reject(new Error('Python service executable not found'));
       return;
+    }
+    
+    // Check if file is executable on Windows
+    if (process.platform === 'win32') {
+      try {
+        fs.accessSync(pythonExePath, fs.constants.F_OK | fs.constants.R_OK);
+        console.log('Python executable is accessible on Windows');
+      } catch (accessError) {
+        console.error('Python executable access error on Windows:', accessError);
+        updateLoadingStatus('PDF analyzer access denied, using online service...');
+        reject(new Error('Python service executable access denied'));
+        return;
+      }
     }
 
     console.log('Starting Python service in server mode:', pythonExePath);
@@ -145,14 +164,22 @@ function startPythonService() {
     
     // Start Python server
     const pythonPort = CONFIG.PYTHON_PORT + 1; // Use different port for Python server
+    
+    // Platform-specific environment variables
+    const pythonEnv = {
+      ...process.env,
+      PYTHONUNBUFFERED: '1',
+      PYTHONDONTWRITEBYTECODE: '1'
+    };
+    
+    // Add macOS-specific environment variable only on macOS
+    if (process.platform === 'darwin') {
+      pythonEnv.OBJC_DISABLE_INITIALIZE_FORK_SAFETY = 'YES';
+    }
+    
     pythonProcess = spawn(pythonExePath, ['--mode', 'server', '--host', '127.0.0.1', '--port', pythonPort.toString()], {
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: {
-        ...process.env,
-        PYTHONUNBUFFERED: '1',
-        OBJC_DISABLE_INITIALIZE_FORK_SAFETY: 'YES',
-        PYTHONDONTWRITEBYTECODE: '1'
-      }
+      env: pythonEnv
     });
 
     let serverReady = false;
@@ -182,6 +209,22 @@ function startPythonService() {
 
     pythonProcess.on('error', (error) => {
       console.error('Failed to start Python server:', error);
+      console.error('Error code:', error.code);
+      console.error('Error errno:', error.errno);
+      console.error('Error syscall:', error.syscall);
+      console.error('Error path:', error.path);
+      
+      // Windows-specific error handling
+      if (process.platform === 'win32') {
+        if (error.code === 'ENOENT') {
+          console.error('Windows: Python executable not found or not in PATH');
+        } else if (error.code === 'EACCES') {
+          console.error('Windows: Permission denied - check antivirus or file permissions');
+        } else if (error.code === 'EPERM') {
+          console.error('Windows: Operation not permitted - check UAC or antivirus');
+        }
+      }
+      
       updateLoadingStatus('PDF analyzer failed, using online service...');
       reject(error);
       return;
@@ -200,19 +243,21 @@ function startPythonService() {
       }
     }, 50);
 
-    // Timeout after 20 seconds
+    // Platform-specific timeout - Windows may need more time
+    const timeout = process.platform === 'win32' ? 30000 : 20000;
+    
     setTimeout(() => {
       if (!serverReady) {
         clearInterval(checkReady);
         // Even if we didn't detect ready state, try to start proxy anyway
-        console.log('Timeout reached, attempting to start proxy anyway...');
+        console.log(`Timeout reached after ${timeout}ms, attempting to start proxy anyway...`);
         updateLoadingStatus('Timeout reached, starting anyway...');
         startProxyServer(pythonPort).then(() => {
           servicesReady = true;
           resolve();
         }).catch(reject);
       }
-    }, 20000);
+    }, timeout);
   });
 }
 
@@ -398,6 +443,21 @@ function startProxyServer(pythonPort) {
 
     localServer.on('error', (error) => {
       console.error('Local proxy server error:', error);
+      console.error('Error code:', error.code);
+      console.error('Error port:', error.port);
+      console.error('Error address:', error.address);
+      
+      // Windows-specific port binding issues
+      if (process.platform === 'win32') {
+        if (error.code === 'EADDRINUSE') {
+          console.error(`Windows: Port ${CONFIG.LOCAL_PORT} is already in use`);
+        } else if (error.code === 'EACCES') {
+          console.error(`Windows: Permission denied for port ${CONFIG.LOCAL_PORT} - may need admin rights`);
+        } else if (error.code === 'EADDRNOTAVAIL') {
+          console.error('Windows: Address not available - check network configuration');
+        }
+      }
+      
       reject(error);
     });
   });
@@ -542,6 +602,21 @@ function startFallbackProxy() {
 
     localServer.on('error', (error) => {
       console.error('Fallback proxy server error:', error);
+      console.error('Error code:', error.code);
+      console.error('Error port:', error.port);
+      console.error('Error address:', error.address);
+      
+      // Windows-specific port binding issues
+      if (process.platform === 'win32') {
+        if (error.code === 'EADDRINUSE') {
+          console.error(`Windows: Port ${CONFIG.LOCAL_PORT} is already in use`);
+        } else if (error.code === 'EACCES') {
+          console.error(`Windows: Permission denied for port ${CONFIG.LOCAL_PORT} - may need admin rights`);
+        } else if (error.code === 'EADDRNOTAVAIL') {
+          console.error('Windows: Address not available - check network configuration');
+        }
+      }
+      
       updateLoadingStatus('Service setup failed...');
       reject(error);
     });

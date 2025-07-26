@@ -631,7 +631,26 @@ function getPythonExecutablePath() {
     : path.join(__dirname, '../python-service');
     
   const platform = process.platform;
-  const exeName = platform === 'win32' ? 'pdf_analyzer.exe' : 'pdf_analyzer';
+  
+  // Improved file detection for different platforms
+  let exeName;
+  if (platform === 'win32') {
+    // Try multiple possible names for Windows
+    const possibleNames = ['pdf_analyzer.exe', 'pdf_analyzer'];
+    
+    for (const name of possibleNames) {
+      const fullPath = path.join(basePath, name);
+      if (fs.existsSync(fullPath)) {
+        console.log(`Found Python executable: ${fullPath}`);
+        return fullPath;
+      }
+    }
+    
+    // Fallback to default name
+    exeName = 'pdf_analyzer.exe';
+  } else {
+    exeName = 'pdf_analyzer';
+  }
   
   return path.join(basePath, exeName);
 }

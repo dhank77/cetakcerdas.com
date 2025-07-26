@@ -100,7 +100,7 @@ class PrintController extends Controller
         return Inertia::render('frontend/print/protected-auth');
     }
 
-    public function protectedAccess(Request $request): Response|RedirectResponse
+    public function protectedAccess(Request $request): RedirectResponse
     {
         $request->validate([
             'password' => 'required|string',
@@ -123,20 +123,24 @@ class PrintController extends Controller
             ])->withInput();
         }
 
-        // Get price settings
+        session(['protected_user' => $user->id]);
+
+        return redirect()->route('print.protected.validated');
+    }
+
+    public function protectedValidated() : Response 
+    {
         $priceSettingPhoto = 2000;
         $priceSettingColor = 1000;
         $priceSettingBw = 500;
 
+        $user = User::find(session('protected_user'));
         $setting = $user->setting;
         if ($setting) {
             $priceSettingColor = $setting->color_price;
             $priceSettingPhoto = $setting->photo_price > 0 ? $setting->photo_price : $setting->color_price;
             $priceSettingBw = $setting->bw_price;
         }
-
-        // Store user info in session for this protected access
-        session(['protected_user' => $user->id]);
 
         return Inertia::render('frontend/print/protected-index', [
             'user' => $user,

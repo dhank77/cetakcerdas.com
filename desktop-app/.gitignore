@@ -21,7 +21,6 @@ frontend-build/manifest.json
 *.deb
 *.rpm
 *.AppImage
-*.exe
 *.msi
 *.zip
 *.tar.gz

@@ -12,6 +12,9 @@ Route::get('', LandingController::class)->name('home');
 Route::get('print/{slug?}', [PrintController::class, 'index'])->name('print');
 Route::post('print-order', [PrintController::class, 'order'])->name('print.order');
 
+Route::get('protected-print', [PrintController::class, 'protected'])->name('print.protected');
+Route::post('protected-print', [PrintController::class, 'protectedAccess'])->name('print.protected.access');
+
 Route::get('booking/{slug}', [BookingController::class, 'index'])->name('booking');
 Route::post('booking/{slug}/upload', [BookingController::class, 'store'])->name('booking.store');
 

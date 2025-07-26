@@ -95,6 +95,57 @@ class PrintController extends Controller
         ]);
     }
 
+    public function protected(): Response
+    {
+        return Inertia::render('frontend/print/protected-auth');
+    }
+
+    public function protectedAccess(Request $request): Response|RedirectResponse
+    {
+        $request->validate([
+            'password' => 'required|string',
+            'pin' => 'required|string|max:6',
+        ]);
+
+        $users = User::where('pin', $request->pin)->get();
+        $user = null;
+        
+        foreach ($users as $potentialUser) {
+            if (password_verify($request->password, $potentialUser->password)) {
+                $user = $potentialUser;
+                break;
+            }
+        }
+
+        if (!$user) {
+            return redirect()->back()->withErrors([
+                'auth' => 'Password atau PIN tidak valid.'
+            ])->withInput();
+        }
+
+        // Get price settings
+        $priceSettingPhoto = 2000;
+        $priceSettingColor = 1000;
+        $priceSettingBw = 500;
+
+        $setting = $user->setting;
+        if ($setting) {
+            $priceSettingColor = $setting->color_price;
+            $priceSettingPhoto = $setting->photo_price > 0 ? $setting->photo_price : $setting->color_price;
+            $priceSettingBw = $setting->bw_price;
+        }
+
+        // Store user info in session for this protected access
+        session(['protected_user' => $user->id]);
+
+        return Inertia::render('frontend/print/protected-index', [
+            'user' => $user,
+            'priceSettingColor' => $priceSettingColor,
+            'priceSettingPhoto' => $priceSettingPhoto,
+            'priceSettingBw' => $priceSettingBw,
+        ]);
+    }
+
     public function redirect(Request $request): RedirectResponse
     {
         $user = Auth::user();

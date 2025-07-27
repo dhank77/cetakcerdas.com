@@ -124,17 +124,29 @@ class PrintController extends Controller
         }
 
         session(['protected_user' => $user->id]);
-
-        return redirect()->route('print.protected.validated');
+        $cookie = cookie('protected_user_backup', $user->id, 525600); // 1 year in minutes
+        
+        return redirect()->route('print.protected.validated')->withCookie($cookie);
     }
 
-    public function protectedValidated() : Response 
+    public function protectedValidated(Request $request) : Response|RedirectResponse 
     {
+        $protectedUserId = session('protected_user');
+        
+        if (!$protectedUserId && $request->cookie('protected_user_backup')) {
+            $protectedUserId = $request->cookie('protected_user_backup');
+            session(['protected_user' => $protectedUserId]);
+        }
+        
+        if (!$protectedUserId) {
+            return redirect()->route('print.protected');
+        }
+        
         $priceSettingPhoto = 2000;
         $priceSettingColor = 1000;
         $priceSettingBw = 500;
 
-        $user = User::find(session('protected_user'));
+        $user = User::find($protectedUserId);
         $setting = $user->setting;
         if ($setting) {
             $priceSettingColor = $setting->color_price;
@@ -150,14 +162,9 @@ class PrintController extends Controller
         ]);
     }
 
-    public function redirect(Request $request): RedirectResponse
+    public function redirect(): RedirectResponse
     {
         $user = Auth::user();
-
-        Auth::guard('web')->logout();
-
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
 
         return redirect()->route('print', $user->slug);
     }

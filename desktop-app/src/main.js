@@ -22,6 +22,9 @@ const CONFIG = {
   isDev: process.argv.includes('--dev')
 };
 
+// Disable SSL certificate validation for development
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 let mainWindow;
 let loadingWindow;
 let pythonProcess;
@@ -74,14 +77,14 @@ function createWindow() {
     titleBarStyle: 'default'
   });
 
-  // Load the application with protected-print as default
+  // Load the application with protected-print as default for desktop app
   if (CONFIG.isDev) {
     // Development mode - connect to Laravel dev server
     mainWindow.loadURL('http://localhost:8000/protected-print');
     mainWindow.webContents.openDevTools();
   } else {
-    // Production mode - load cetakcerdas.com/protected-print directly
-    mainWindow.loadURL(`${CONFIG.SERVER_URL}/protected-print`);
+    // Production mode - load through local proxy server to enable preload script
+    mainWindow.loadURL(`http://127.0.0.1:${CONFIG.LOCAL_PORT}/protected-print`);
   }
 
   // Show window when ready and hide loading window
@@ -434,6 +437,59 @@ function startProxyServer(pythonPort) {
         };
         
         res.status(500).json(fallbackResult);
+      }
+    });
+
+    // Proxy all other requests (web pages) to the main server
+    app.use('*', async (req, res) => {
+      try {
+        const targetUrl = `${CONFIG.SERVER_URL}${req.originalUrl}`;
+        console.log(`Proxying web request: ${req.originalUrl} -> ${targetUrl}`);
+        
+        const response = await fetch(targetUrl, {
+          method: req.method,
+          headers: {
+            ...req.headers,
+            'host': undefined, // Remove host header to avoid conflicts
+            'x-forwarded-for': req.ip,
+            'x-forwarded-proto': 'http',
+            'x-desktop-app': 'true', // Mark as desktop app request
+            'user-agent': req.headers['user-agent'] || 'CetakCerdas-Desktop-App'
+          },
+          body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined
+        });
+        
+        // Copy response headers
+        response.headers.forEach((value, key) => {
+          if (key.toLowerCase() !== 'content-encoding') {
+            res.setHeader(key, value);
+          }
+        });
+        
+        res.status(response.status);
+        
+        // Get response text and inject desktop app detection script
+        const responseText = await response.text();
+        
+        // If it's an HTML response, inject desktop app detection
+        if (response.headers.get('content-type')?.includes('text/html')) {
+          const injectedHtml = responseText.replace(
+            '</head>',
+            `<script>
+              // Desktop app detection for preload script
+              window.isDesktopApp = true;
+              console.log('Desktop app detection injected');
+            </script>
+            </head>`
+          );
+          res.send(injectedHtml);
+        } else {
+          res.send(responseText);
+        }
+        
+      } catch (error) {
+        console.error('Proxy error:', error);
+        res.status(500).json({ error: 'Proxy server error', details: error.message });
       }
     });
 

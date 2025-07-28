@@ -95,8 +95,18 @@ class PrintController extends Controller
         ]);
     }
 
-    public function protected(): Response
+    public function protected(Request $request): Response|RedirectResponse
     {
+        // Check if request is from desktop app (Electron)
+        $isDesktopApp = str_contains($request->userAgent(), 'Electron') || 
+                       $request->hasHeader('X-Desktop-App') ||
+                       $request->ip() === '127.0.0.1';
+        
+        // For desktop app, redirect directly to protected-validated
+        if ($isDesktopApp) {
+            return redirect()->route('print.protected.validated');
+        }
+        
         return Inertia::render('frontend/print/protected-auth');
     }
 
@@ -131,11 +141,27 @@ class PrintController extends Controller
 
     public function protectedValidated(Request $request) : Response|RedirectResponse 
     {
+        // Check if request is from desktop app (Electron)
+        $isDesktopApp = str_contains($request->userAgent(), 'Electron') || 
+                       $request->hasHeader('X-Desktop-App') ||
+                       $request->ip() === '127.0.0.1';
+        
         $protectedUserId = session('protected_user');
         
         if (!$protectedUserId && $request->cookie('protected_user_backup')) {
             $protectedUserId = $request->cookie('protected_user_backup');
             session(['protected_user' => $protectedUserId]);
+        }
+        
+        // For desktop app, allow access without session validation
+        // Use default user or first available user for desktop app
+        if (!$protectedUserId && $isDesktopApp) {
+            // Get the first user with PIN for desktop app access
+            $defaultUser = User::whereNotNull('pin')->first();
+            if ($defaultUser) {
+                $protectedUserId = $defaultUser->id;
+                session(['protected_user' => $protectedUserId]);
+            }
         }
         
         if (!$protectedUserId) {
@@ -147,6 +173,11 @@ class PrintController extends Controller
         $priceSettingBw = 500;
 
         $user = User::find($protectedUserId);
+        if (!$user) {
+            // If user not found, redirect to auth page
+            return redirect()->route('print.protected');
+        }
+        
         $setting = $user->setting;
         if ($setting) {
             $priceSettingColor = $setting->color_price;

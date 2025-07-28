@@ -70,22 +70,26 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
         // Dispatch custom event to notify cart update
         window.dispatchEvent(new CustomEvent('cartUpdated'));
 
-        // Check if running in desktop app
-        const isDesktopApp = (window as any).desktopAPI?.isDesktop;
+        // Check if running in desktop app with multiple detection methods
+        const isDesktopApp = (window as any).desktopAPI?.isDesktop || (window as any).isDesktopApp || false;
+        const electronAPI = (window as any).electronAPI;
         
         console.log('🔍 Print Debug Info:');
-        console.log('- isDesktopApp:', isDesktopApp);
+        console.log('- desktopAPI.isDesktop:', (window as any).desktopAPI?.isDesktop);
+        console.log('- window.isDesktopApp:', (window as any).isDesktopApp);
+        console.log('- isDesktopApp (final):', isDesktopApp);
         console.log('- previewUrl:', previewUrl);
         console.log('- analysisResult.file_url:', analysisResult.file_url);
-        console.log('- electronAPI available:', !!(window as any).electronAPI?.printDocument);
+        console.log('- electronAPI available:', !!electronAPI?.printDocument);
+        console.log('- electronAPI object:', electronAPI);
         
         if (previewUrl && previewUrl !== 'docx-pending' && previewUrl !== 'docx-info') {
             console.log('✅ Using previewUrl for printing:', previewUrl);
-            if (isDesktopApp && (window as any).electronAPI?.printDocument) {
+            if (isDesktopApp && electronAPI?.printDocument) {
                 // Use desktop app print functionality
                 console.log('🖨️ Calling desktop app print function...');
                 try {
-                    const result = await (window as any).electronAPI.printDocument(previewUrl);
+                    const result = await electronAPI.printDocument(previewUrl);
                     console.log('✅ Desktop print result:', result);
                 } catch (error) {
                     console.error('❌ Desktop print failed:', error);
@@ -105,11 +109,11 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
             }
         } else if (analysisResult.file_url) {
             console.log('📄 Using fallback file_url for printing:', analysisResult.file_url);
-            if (isDesktopApp && (window as any).electronAPI?.printDocument) {
+            if (isDesktopApp && electronAPI?.printDocument) {
                 // Use desktop app print functionality for fallback URL
                 console.log('🖨️ Calling desktop app print function with fallback URL...');
                 try {
-                    const result = await (window as any).electronAPI.printDocument(analysisResult.file_url);
+                    const result = await electronAPI.printDocument(analysisResult.file_url);
                     console.log('✅ Desktop print result:', result);
                 } catch (error) {
                     console.error('❌ Desktop print failed:', error);
@@ -131,7 +135,14 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
             console.log('❌ No valid URL available for printing');
             console.log('- previewUrl:', previewUrl);
             console.log('- analysisResult.file_url:', analysisResult.file_url);
-            alert('Dokumen tidak tersedia untuk dicetak. Silakan upload ulang dokumen.');
+            
+            // For DOCX files, provide alternative solution
+            if (previewUrl === 'docx-pending' || previewUrl === 'docx-info') {
+                console.log('📄 DOCX file detected, providing alternative solution');
+                alert('File DOCX tidak dapat dicetak langsung dari aplikasi desktop. Silakan:\n\n1. Download file DOCX\n2. Buka dengan Microsoft Word\n3. Print dari Word\n\nAtau convert ke PDF terlebih dahulu untuk hasil terbaik.');
+            } else {
+                alert('Dokumen tidak tersedia untuk dicetak. Silakan upload ulang dokumen.');
+            }
         }
 
         // Mark item as added and show cart popup

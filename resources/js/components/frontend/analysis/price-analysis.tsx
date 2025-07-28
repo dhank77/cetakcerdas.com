@@ -83,6 +83,9 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
         console.log('- analysisResult.file_url:', analysisResult.file_url);
         console.log('- electronAPI available:', !!electronAPI?.printDocument);
         console.log('- localFileAPI available:', !!localFileAPI);
+        console.log('- analysisResult.analysis_mode:', analysisResult.analysis_mode);
+        console.log('- fileName:', fileName);
+        console.log('- file extension:', fileName.toLowerCase().split('.').pop());
         
         // Save analysis result to local cache if desktop app
         if (isDesktopApp && localFileAPI && analysisResult) {
@@ -103,7 +106,46 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
         }
         
         // Enhanced printing logic with local file support
-        if (previewUrl && previewUrl !== 'docx-pending' && previewUrl !== 'docx-info') {
+        const fileExtension = fileName.toLowerCase().split('.').pop();
+        const isDocxFile = fileExtension === 'docx';
+        
+        // For desktop app with local analysis, handle DOCX files differently
+        if (isDesktopApp && analysisResult.analysis_mode === 'local_desktop' && isDocxFile) {
+            console.log('📄 Local DOCX file detected in desktop app');
+            
+            // For local DOCX files, try to convert to PDF or use system default
+            if (localFileAPI) {
+                try {
+                    console.log('🖨️ Attempting to print local DOCX file...');
+                    const printSettings = await localFileAPI.getPrintSettings();
+                    
+                    // Use the original file path from analysis result
+                    const filePath = analysisResult.file_url || previewUrl;
+                    if (filePath && filePath.startsWith('file://')) {
+                        const result = await localFileAPI.printLocalFileEnhanced({
+                            filePath: filePath,
+                            printSettings
+                        });
+                        
+                        if (result.success) {
+                            console.log('✅ Local DOCX print successful');
+                            if (result.message) {
+                                alert('File DOCX berhasil dibuka dengan aplikasi default sistem. Silakan cetak dari aplikasi yang terbuka (misalnya Microsoft Word).');
+                            }
+                        } else {
+                            throw new Error(result.failureReason);
+                        }
+                    } else {
+                        throw new Error('Invalid file path for local DOCX');
+                    }
+                } catch (error) {
+                    console.error('❌ Local DOCX print failed:', error);
+                    alert('Gagal mencetak file DOCX. Pastikan Microsoft Word atau aplikasi yang mendukung DOCX terinstall di sistem Anda.');
+                }
+            } else {
+                alert('Local file API tidak tersedia. Silakan restart aplikasi desktop.');
+            }
+        } else if (previewUrl && previewUrl !== 'docx-pending' && previewUrl !== 'docx-info') {
             console.log('✅ Using previewUrl for printing:', previewUrl);
             
             if (isDesktopApp && localFileAPI && analysisResult.analysis_mode === 'local_desktop') {

@@ -1138,6 +1138,40 @@ function setupLocalFileHandlers() {
       
       console.log('🖨️ Enhanced print request:', { filePath, printSettings });
       
+      // Check file extension
+      const fileExtension = filePath.toLowerCase().split('.').pop();
+      const isDocxFile = fileExtension === 'docx';
+      
+      if (isDocxFile) {
+        console.log('📄 DOCX file detected, using system default application');
+        
+        // For DOCX files, try to open with system default application
+        try {
+          const actualFilePath = filePath.startsWith('file://') ? filePath.replace('file://', '') : filePath;
+          
+          // Check if file exists
+          if (!fs.existsSync(actualFilePath)) {
+            throw new Error('DOCX file not found');
+          }
+          
+          // Open with system default application
+          await shell.openPath(actualFilePath);
+          
+          // Return success - user will need to print from the opened application
+          return {
+            success: true,
+            message: 'DOCX file opened with system default application. Please print from the opened application.'
+          };
+        } catch (error) {
+          console.error('Failed to open DOCX with system app:', error);
+          return {
+            success: false,
+            failureReason: 'Gagal membuka file DOCX. Pastikan Microsoft Word atau aplikasi yang mendukung DOCX terinstall.'
+          };
+        }
+      }
+      
+      // For PDF files and other supported formats
       const printWindow = new BrowserWindow({
         width: 800,
         height: 600,
@@ -1156,6 +1190,11 @@ function setupLocalFileHandlers() {
       } else {
         await printWindow.loadFile(filePath);
       }
+      
+      // Wait for content to load
+      await new Promise((resolve) => {
+        printWindow.webContents.once('did-finish-load', resolve);
+      });
       
       const printOptions = {
         silent: false,

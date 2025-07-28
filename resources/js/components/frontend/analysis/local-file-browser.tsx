@@ -36,7 +36,7 @@ declare global {
       getFileInfo: (filePath: string) => Promise<{ size: number; lastModified: number; exists: boolean }>;
       analyzeLocalFile: (fileData: { filePath: string; fileName: string }) => Promise<AnalysisResponse>;
       saveAnalysisResult: (fileData: LocalFile) => Promise<{ success: boolean; id: string }>;
-      printLocalFileEnhanced: (options: { filePath: string; printSettings: any }) => Promise<{ success: boolean; failureReason?: string }>;
+      printLocalFileEnhanced: (options: { filePath: string; printSettings: any }) => Promise<{ success: boolean; failureReason?: string; message?: string }>;
       getPrintSettings: () => Promise<any>;
       clearAnalysisCache: () => Promise<{ success: boolean }>;
     };
@@ -158,7 +158,12 @@ const LocalFileBrowser: React.FC<LocalFileBrowserProps> = () => {
           printSettings
         });
         
-        if (!result.success) {
+        if (result.success) {
+          // Check if it's a DOCX file that was opened with system app
+          if (result.message && file.fileName.toLowerCase().endsWith('.docx')) {
+            alert('File DOCX berhasil dibuka dengan aplikasi default sistem. Silakan cetak dari aplikasi yang terbuka (misalnya Microsoft Word).');
+          }
+        } else {
           throw new Error(result.failureReason || 'Print failed');
         }
       }

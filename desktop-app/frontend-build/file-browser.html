@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local File Browser - Cetak Cerdas</title>
+    <meta name="csrf-token" content="">
+    <script>
+        window.APP_CONFIG = {
+            SERVER_URL: 'https://cetakcerdas.com',
+            LOCAL_MODE: true,
+            PYTHON_SERVICE_URL: 'http://127.0.0.1:9007',
+            FILE_BROWSER_MODE: true
+        };
+        
+        // Desktop app detection for preload script
+        window.isDesktopApp = true;
+        window.isFileBrowserMode = true;
+        console.log('File browser mode initialized');
+    </script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+        
+        .loading-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            color: #333;
+            font-size: 18px;
+            font-weight: 500;
+        }
+        
+        .loading-subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="loading-container">
+            <div class="spinner"></div>
+            <div class="loading-text">Loading Local File Browser...</div>
+            <div class="loading-subtitle">Initializing desktop file management</div>
+        </div>
+    </div>
+    
+    <script>
+        // Redirect to the protected-print page with file browser mode
+        setTimeout(() => {
+            const baseUrl = window.APP_CONFIG.SERVER_URL;
+            const targetUrl = `${baseUrl}/protected-print?mode=file-browser`;
+            console.log('Redirecting to:', targetUrl);
+            window.location.href = targetUrl;
+        }, 2000);
+    </script>
+</body>
+</html>

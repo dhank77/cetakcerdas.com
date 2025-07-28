@@ -70,29 +70,72 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
         // Dispatch custom event to notify cart update
         window.dispatchEvent(new CustomEvent('cartUpdated'));
 
-        // Check if running in desktop app with multiple detection methods
+        // Enhanced desktop app detection and local file handling
         const isDesktopApp = (window as any).desktopAPI?.isDesktop || (window as any).isDesktopApp || false;
         const electronAPI = (window as any).electronAPI;
+        const localFileAPI = (window as any).localFileAPI;
         
-        console.log('🔍 Print Debug Info:');
+        console.log('🔍 Enhanced Print Debug Info:');
         console.log('- desktopAPI.isDesktop:', (window as any).desktopAPI?.isDesktop);
         console.log('- window.isDesktopApp:', (window as any).isDesktopApp);
         console.log('- isDesktopApp (final):', isDesktopApp);
         console.log('- previewUrl:', previewUrl);
         console.log('- analysisResult.file_url:', analysisResult.file_url);
         console.log('- electronAPI available:', !!electronAPI?.printDocument);
-        console.log('- electronAPI object:', electronAPI);
+        console.log('- localFileAPI available:', !!localFileAPI);
         
+        // Save analysis result to local cache if desktop app
+        if (isDesktopApp && localFileAPI && analysisResult) {
+            try {
+                await localFileAPI.saveAnalysisResult({
+                    id: cartItem.id,
+                    fileName: fileName,
+                    analysisResult: analysisResult,
+                    analyzedAt: Date.now(),
+                    filePath: previewUrl || analysisResult.file_url || '',
+                    fileSize: 0,
+                    lastModified: Date.now()
+                });
+                console.log('✅ Analysis result saved to local cache');
+            } catch (error) {
+                console.error('❌ Failed to save analysis to local cache:', error);
+            }
+        }
+        
+        // Enhanced printing logic with local file support
         if (previewUrl && previewUrl !== 'docx-pending' && previewUrl !== 'docx-info') {
             console.log('✅ Using previewUrl for printing:', previewUrl);
-            if (isDesktopApp && electronAPI?.printDocument) {
-                // Use desktop app print functionality
-                console.log('🖨️ Calling desktop app print function...');
+            
+            if (isDesktopApp && localFileAPI && analysisResult.analysis_mode === 'local_desktop') {
+                // Use enhanced local file printing for local analysis
+                console.log('🖨️ Using enhanced local file printing...');
+                try {
+                    const printSettings = await localFileAPI.getPrintSettings();
+                    const result = await localFileAPI.printLocalFileEnhanced({
+                        filePath: previewUrl,
+                        printSettings
+                    });
+                    
+                    if (result.success) {
+                        console.log('✅ Enhanced local print successful');
+                    } else {
+                        throw new Error(result.failureReason);
+                    }
+                } catch (error) {
+                    console.error('❌ Enhanced local print failed, falling back to standard print:', error);
+                    // Fallback to standard electron print
+                    if (electronAPI?.printDocument) {
+                        await electronAPI.printDocument(previewUrl);
+                    }
+                }
+            } else if (isDesktopApp && electronAPI?.printDocument) {
+                // Use standard desktop app print functionality
+                console.log('🖨️ Using standard desktop app print function...');
                 try {
                     const result = await electronAPI.printDocument(previewUrl);
-                    console.log('✅ Desktop print result:', result);
+                    console.log('✅ Standard desktop print result:', result);
                 } catch (error) {
-                    console.error('❌ Desktop print failed:', error);
+                    console.error('❌ Standard desktop print failed:', error);
                     alert('Gagal mencetak dokumen. Silakan coba lagi.');
                 }
             } else {
@@ -109,14 +152,36 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
             }
         } else if (analysisResult.file_url) {
             console.log('📄 Using fallback file_url for printing:', analysisResult.file_url);
-            if (isDesktopApp && electronAPI?.printDocument) {
+            
+            if (isDesktopApp && localFileAPI && analysisResult.file_url.startsWith('file://')) {
+                // Handle local file URLs with enhanced printing
+                console.log('🖨️ Using enhanced printing for local file URL...');
+                try {
+                    const printSettings = await localFileAPI.getPrintSettings();
+                    const result = await localFileAPI.printLocalFileEnhanced({
+                        filePath: analysisResult.file_url,
+                        printSettings
+                    });
+                    
+                    if (!result.success) {
+                        throw new Error(result.failureReason);
+                    }
+                    console.log('✅ Enhanced local file URL print successful');
+                } catch (error) {
+                    console.error('❌ Enhanced local file URL print failed:', error);
+                    // Fallback to standard print
+                    if (electronAPI?.printDocument) {
+                        await electronAPI.printDocument(analysisResult.file_url);
+                    }
+                }
+            } else if (isDesktopApp && electronAPI?.printDocument) {
                 // Use desktop app print functionality for fallback URL
-                console.log('🖨️ Calling desktop app print function with fallback URL...');
+                console.log('🖨️ Using standard desktop print with fallback URL...');
                 try {
                     const result = await electronAPI.printDocument(analysisResult.file_url);
-                    console.log('✅ Desktop print result:', result);
+                    console.log('✅ Standard desktop print result:', result);
                 } catch (error) {
-                    console.error('❌ Desktop print failed:', error);
+                    console.error('❌ Standard desktop print failed:', error);
                     alert('Gagal mencetak dokumen. Silakan coba lagi.');
                 }
             } else {

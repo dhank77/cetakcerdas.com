@@ -34,6 +34,28 @@ contextBridge.exposeInMainWorld('electronAPI', {
   }
 });
 
+// Expose local file operations API
+contextBridge.exposeInMainWorld('localFileAPI', {
+  // File browser operations
+  browseFiles: () => ipcRenderer.invoke('browse-local-files'),
+  openFileBrowser: () => ipcRenderer.invoke('open-local-file-browser'),
+  
+  // File analysis operations
+  analyzeLocalFile: (fileData) => ipcRenderer.invoke('analyze-local-file', fileData),
+  saveAnalysisResult: (fileData) => ipcRenderer.invoke('save-analysis-result', fileData),
+  getAnalysisHistory: () => ipcRenderer.invoke('get-analysis-history'),
+  clearAnalysisCache: () => ipcRenderer.invoke('clear-analysis-cache'),
+  
+  // Enhanced print operations
+  printLocalFileEnhanced: (options) => ipcRenderer.invoke('print-local-file-enhanced', options),
+  getPrintSettings: () => ipcRenderer.invoke('get-print-settings'),
+  savePrintSettings: (settings) => ipcRenderer.invoke('save-print-settings', settings),
+  
+  // File system operations
+  getFileInfo: (filePath) => ipcRenderer.invoke('get-file-info', filePath),
+  readFileContent: (filePath) => ipcRenderer.invoke('read-file-content', filePath)
+});
+
 // Expose a limited API for the renderer
 contextBridge.exposeInMainWorld('desktopAPI', {
   platform: process.platform,

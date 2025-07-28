@@ -9,6 +9,8 @@ import multer from 'multer';
 import FormData from 'form-data';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import Store from 'electron-store';
+import crypto from 'crypto';
 
 // ES6 module equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -30,6 +32,22 @@ let loadingWindow;
 let pythonProcess;
 let localServer;
 let laravelProcess;
+let fileBrowserWindow;
+
+// Initialize local storage for analysis cache
+const analysisStore = new Store({
+  name: 'analysis-cache',
+  defaults: {
+    analyzedFiles: [],
+    printSettings: {
+      paperSize: 'A4',
+      orientation: 'portrait',
+      quality: 'normal',
+      copies: 1,
+      duplex: false
+    }
+  }
+});
 
 // Create loading window
 function createLoadingWindow() {
@@ -78,14 +96,14 @@ function createWindow() {
   });
 
   // Load the application with protected-print as default for desktop app
-  if (CONFIG.isDev) {
-    // Development mode - connect to Laravel dev server
-    mainWindow.loadURL('http://localhost:8000/protected-print');
-    mainWindow.webContents.openDevTools();
-  } else {
-    // Production mode - load through local proxy server to enable preload script
-    mainWindow.loadURL(`http://127.0.0.1:${CONFIG.LOCAL_PORT}/protected-print`);
-  }
+   if (CONFIG.isDev) {
+     // Development mode - connect to Laravel dev server
+     mainWindow.loadURL('http://localhost:8000/protected-print');
+     mainWindow.webContents.openDevTools();
+   } else {
+     // Production mode - connect directly to server
+     mainWindow.loadURL(`${CONFIG.SERVER_URL}/protected-print`);
+   }
 
   // Show window when ready and hide loading window
   mainWindow.once('ready-to-show', () => {
@@ -112,6 +130,16 @@ function createWindow() {
 
   // Create application menu
   createMenu();
+  
+  // Add X-Desktop-App header to all requests to identify desktop app
+  mainWindow.webContents.session.webRequest.onBeforeSendHeaders(
+    { urls: ['*://cetakcerdas.com/*', '*://www.cetakcerdas.com/*'] },
+    (details, callback) => {
+      details.requestHeaders['X-Desktop-App'] = 'true';
+      details.requestHeaders['User-Agent'] = 'Electron';
+      callback({ requestHeaders: details.requestHeaders });
+    }
+  );
   
   // Intercept requests to handle local PDF analysis with price calculation
   mainWindow.webContents.session.webRequest.onBeforeRequest(
@@ -870,11 +898,294 @@ function setupIpcHandlers() {
   });
 }
 
+// Helper function to generate file hash
+function generateFileHash(filePath) {
+  try {
+    const fileBuffer = fs.readFileSync(filePath);
+    return crypto.createHash('md5').update(fileBuffer).digest('hex');
+  } catch (error) {
+    console.error('Error generating file hash:', error);
+    return Date.now().toString();
+  }
+}
+
+// Setup additional IPC handlers for local file operations
+function setupLocalFileHandlers() {
+  // File browser handlers
+  ipcMain.handle('browse-local-files', async () => {
+    try {
+      const result = await dialog.showOpenDialog(mainWindow, {
+        properties: ['openFile', 'multiSelections'],
+        filters: [
+          { name: 'Documents', extensions: ['pdf', 'docx'] },
+          { name: 'PDF Files', extensions: ['pdf'] },
+          { name: 'Word Documents', extensions: ['docx'] }
+        ]
+      });
+      return result;
+    } catch (error) {
+      console.error('Error browsing files:', error);
+      return { canceled: true, filePaths: [] };
+    }
+  });
+
+  ipcMain.handle('open-local-file-browser', async () => {
+    try {
+      // Create new window for local file browser
+      fileBrowserWindow = new BrowserWindow({
+        width: 1200,
+        height: 800,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+          preload: path.join(__dirname, 'preload.js')
+        },
+        title: 'Local File Browser - Cetak Cerdas',
+        icon: path.join(__dirname, '../assets/icon.png')
+      });
+      
+      // Load the main application but with a special parameter for file browser mode
+      if (CONFIG.isDev) {
+        fileBrowserWindow.loadURL('http://localhost:8000/protected-print?mode=file-browser');
+      } else {
+        fileBrowserWindow.loadURL(`${CONFIG.SERVER_URL}/protected-print?mode=file-browser`);
+      }
+      
+      fileBrowserWindow.on('closed', () => {
+        fileBrowserWindow = null;
+      });
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error opening file browser:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Analysis cache handlers
+  ipcMain.handle('save-analysis-result', async (event, fileData) => {
+    try {
+      const analyzedFiles = analysisStore.get('analyzedFiles', []);
+      
+      const newEntry = {
+        id: fileData.id || Date.now().toString(),
+        filePath: fileData.filePath,
+        fileName: fileData.fileName,
+        fileSize: fileData.fileSize,
+        lastModified: fileData.lastModified,
+        analysisResult: fileData.analysisResult,
+        analyzedAt: Date.now(),
+        fileHash: fileData.fileHash || generateFileHash(fileData.filePath)
+      };
+      
+      analyzedFiles.push(newEntry);
+      
+      // Keep only last 100 entries
+      if (analyzedFiles.length > 100) {
+        analyzedFiles.splice(0, analyzedFiles.length - 100);
+      }
+      
+      analysisStore.set('analyzedFiles', analyzedFiles);
+      
+      return { success: true, id: newEntry.id };
+    } catch (error) {
+      console.error('Error saving analysis result:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('get-analysis-history', async () => {
+    try {
+      return analysisStore.get('analyzedFiles', []);
+    } catch (error) {
+      console.error('Error getting analysis history:', error);
+      return [];
+    }
+  });
+
+  // Local file analysis handler
+  ipcMain.handle('analyze-local-file', async (event, fileData) => {
+    try {
+      const { filePath, fileName } = fileData;
+      
+      if (!fs.existsSync(filePath)) {
+        throw new Error('File not found');
+      }
+      
+      // Read file and create form data for analysis
+      const fileBuffer = fs.readFileSync(filePath);
+      const form = new FormData();
+      form.append('file', fileBuffer, {
+        filename: fileName,
+        contentType: fileName.endsWith('.pdf') ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      });
+      
+      // Use local Python service if available
+      const pythonPort = CONFIG.PYTHON_PORT + 1;
+      const response = await fetch(`http://127.0.0.1:${pythonPort}/analyze-document?color_threshold=20&photo_threshold=30`, {
+        method: 'POST',
+        body: form,
+        headers: form.getHeaders()
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Analysis service error: ${response.status} ${response.statusText}`);
+      }
+      
+      const analysisResult = await response.json();
+      
+      // Calculate prices with default settings
+      const priceSettingColor = 1000;
+      const priceSettingBw = 500;
+      const priceSettingPhoto = 2000;
+      
+      const priceColor = (analysisResult.color_pages || 0) * priceSettingColor;
+      const priceBw = (analysisResult.bw_pages || 0) * priceSettingBw;
+      const pricePhoto = (analysisResult.photo_pages || 0) * priceSettingPhoto;
+      const totalPrice = priceColor + priceBw + pricePhoto;
+      
+      const result = {
+        ...analysisResult,
+        price_color: priceColor,
+        price_bw: priceBw,
+        price_photo: pricePhoto,
+        total_price: totalPrice,
+        file_url: `file://${filePath}`,
+        file_name: fileName,
+        analysis_mode: 'local_desktop',
+        service_available: true,
+        pengaturan: {
+          threshold_warna: '20',
+          threshold_foto: '30',
+          price_setting_color: priceSettingColor,
+          price_setting_bw: priceSettingBw,
+          price_setting_photo: priceSettingPhoto,
+        }
+      };
+      
+      return result;
+    } catch (error) {
+      console.error('Local file analysis error:', error);
+      return {
+        success: false,
+        error: error.message,
+        fallback: true
+      };
+    }
+  });
+
+  // Print settings handlers
+  ipcMain.handle('get-print-settings', async () => {
+    try {
+      return analysisStore.get('printSettings', {
+        paperSize: 'A4',
+        orientation: 'portrait',
+        quality: 'normal',
+        copies: 1,
+        duplex: false
+      });
+    } catch (error) {
+      console.error('Error getting print settings:', error);
+      return {
+        paperSize: 'A4',
+        orientation: 'portrait',
+        quality: 'normal',
+        copies: 1,
+        duplex: false
+      };
+    }
+  });
+
+  ipcMain.handle('save-print-settings', async (event, settings) => {
+    try {
+      analysisStore.set('printSettings', settings);
+      return { success: true };
+    } catch (error) {
+      console.error('Error saving print settings:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('clear-analysis-cache', async () => {
+    try {
+      analysisStore.set('analyzedFiles', []);
+      return { success: true };
+    } catch (error) {
+      console.error('Error clearing analysis cache:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('get-file-info', async (event, filePath) => {
+    try {
+      const stats = fs.statSync(filePath);
+      return {
+        size: stats.size,
+        lastModified: stats.mtime.getTime(),
+        isFile: stats.isFile(),
+        exists: true
+      };
+    } catch (error) {
+      console.error('Error getting file info:', error);
+      return { exists: false, error: error.message };
+    }
+  });
+
+  // Enhanced print handler
+  ipcMain.handle('print-local-file-enhanced', async (event, options) => {
+    try {
+      const { filePath, printSettings } = options;
+      
+      console.log('🖨️ Enhanced print request:', { filePath, printSettings });
+      
+      const printWindow = new BrowserWindow({
+        width: 800,
+        height: 600,
+        show: false,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true
+        }
+      });
+      
+      // Load the file
+      if (filePath.startsWith('file://')) {
+        await printWindow.loadURL(filePath);
+      } else if (filePath.startsWith('http')) {
+        await printWindow.loadURL(filePath);
+      } else {
+        await printWindow.loadFile(filePath);
+      }
+      
+      const printOptions = {
+        silent: false,
+        printBackground: true,
+        color: printSettings.quality !== 'draft',
+        margins: { marginType: 'printableArea' },
+        landscape: printSettings.orientation === 'landscape',
+        scaleFactor: printSettings.quality === 'high' ? 100 : 85,
+        copies: printSettings.copies || 1
+      };
+      
+      return new Promise((resolve) => {
+        printWindow.webContents.print(printOptions, (success, failureReason) => {
+          printWindow.close();
+          resolve({ success, failureReason });
+        });
+      });
+    } catch (error) {
+      console.error('Enhanced print error:', error);
+      return { success: false, failureReason: error.message };
+    }
+  });
+}
+
 // App event handlers
 app.whenReady().then(async () => {
   try {
     // Setup IPC handlers
     setupIpcHandlers();
+    setupLocalFileHandlers();
     
     // Create loading window first
     createLoadingWindow();

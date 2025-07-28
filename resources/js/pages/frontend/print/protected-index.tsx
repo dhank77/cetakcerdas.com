@@ -1,14 +1,17 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import DetailedAnalysis from '@/components/frontend/analysis/detailed-analysis';
 import DocumentPreview from '@/components/frontend/analysis/document-preview';
 import FileUpload from '@/components/frontend/analysis/file-upload';
 import Header from '@/components/frontend/analysis/header';
+import LocalFileBrowser from '@/components/frontend/analysis/local-file-browser';
 import PriceAnalysis from '@/components/frontend/analysis/price-analysis';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { SharedData, User } from '@/types';
 import { AnalysisResult } from '@/types/analysis';
 import { Head, usePage } from '@inertiajs/react';
-import { Lock, Shield } from 'lucide-react';
+import { FolderOpen, Lock, Shield } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface ProtectedPrintProps {
@@ -36,8 +39,27 @@ const ProtectedIndex = ({ user, priceSettingColor, priceSettingPhoto, priceSetti
     const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [showLocalFileBrowser, setShowLocalFileBrowser] = useState(false);
+    const [isDesktopApp, setIsDesktopApp] = useState(false);
 
     const isUserLoggedIn = auth && auth.user;
+
+    // Check if running in desktop app
+    useEffect(() => {
+        const checkDesktopApp = () => {
+            const desktopAPI = (window as any).desktopAPI;
+            const isDesktop = desktopAPI?.isDesktop || (window as any).isDesktopApp || false;
+            setIsDesktopApp(isDesktop);
+        };
+        
+        checkDesktopApp();
+        
+        // Check URL parameters for file browser mode
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('mode') === 'file-browser') {
+            setShowLocalFileBrowser(true);
+        }
+    }, []);
 
     const handleFileSelect = async (selectedFile: File) => {
         setFile(selectedFile);
@@ -192,6 +214,30 @@ const ProtectedIndex = ({ user, priceSettingColor, priceSettingPhoto, priceSetti
         setIsDragging(isDragging);
     };
 
+    const openLocalFileBrowser = async () => {
+        try {
+            const localFileAPI = (window as any).localFileAPI;
+            if (localFileAPI) {
+                await localFileAPI.openFileBrowser();
+            } else {
+                alert('Local file browser is only available in the desktop app');
+            }
+        } catch (error) {
+            console.error('Error opening local file browser:', error);
+            alert('Failed to open local file browser');
+        }
+    };
+
+    // If in file browser mode, show the local file browser component
+    if (showLocalFileBrowser) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 transition-colors duration-300 dark:from-gray-900 dark:to-gray-800">
+                <Head title={`Local File Browser - ${user.name}`} />
+                <LocalFileBrowser />
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 transition-colors duration-300 dark:from-gray-900 dark:to-gray-800">
             {/* Admin Warning if logged in */}
@@ -224,6 +270,33 @@ const ProtectedIndex = ({ user, priceSettingColor, priceSettingPhoto, priceSetti
                 </div>
 
                 <div className="space-y-6">
+                    {/* Desktop App Local File Browser Button */}
+                    {isDesktopApp && (
+                        <div className="mb-6">
+                            <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20">
+                                <CardContent className="pt-4">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+                                                Desktop App Features
+                                            </h3>
+                                            <p className="text-sm text-blue-700 dark:text-blue-300">
+                                                Access local files and view analysis history
+                                            </p>
+                                        </div>
+                                        <Button
+                                            onClick={openLocalFileBrowser}
+                                            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
+                                        >
+                                            <FolderOpen className="h-4 w-4 mr-2" />
+                                            Buka File Lokal
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
                         <FileUpload
                             file={file}

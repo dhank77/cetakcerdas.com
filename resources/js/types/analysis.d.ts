@@ -15,6 +15,7 @@ export interface AnalysisResult {
     bw_pages: number;
     photo_pages: number;
     page_details: PageDetail[];
+    analysis_mode?: string;
     pengaturan: {
         threshold_warna: string;
         threshold_foto: string;

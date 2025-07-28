@@ -73,16 +73,26 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
         // Check if running in desktop app
         const isDesktopApp = (window as any).desktopAPI?.isDesktop;
         
+        console.log('🔍 Print Debug Info:');
+        console.log('- isDesktopApp:', isDesktopApp);
+        console.log('- previewUrl:', previewUrl);
+        console.log('- analysisResult.file_url:', analysisResult.file_url);
+        console.log('- electronAPI available:', !!(window as any).electronAPI?.printDocument);
+        
         if (previewUrl && previewUrl !== 'docx-pending' && previewUrl !== 'docx-info') {
+            console.log('✅ Using previewUrl for printing:', previewUrl);
             if (isDesktopApp && (window as any).electronAPI?.printDocument) {
                 // Use desktop app print functionality
+                console.log('🖨️ Calling desktop app print function...');
                 try {
-                    await (window as any).electronAPI.printDocument(previewUrl);
+                    const result = await (window as any).electronAPI.printDocument(previewUrl);
+                    console.log('✅ Desktop print result:', result);
                 } catch (error) {
-                    console.error('Desktop print failed:', error);
+                    console.error('❌ Desktop print failed:', error);
                     alert('Gagal mencetak dokumen. Silakan coba lagi.');
                 }
             } else {
+                console.log('🌐 Using browser print functionality');
                 // Use browser print functionality
                 const printWindow = window.open(previewUrl, '_blank');
                 if (printWindow) {
@@ -94,15 +104,19 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
                 }
             }
         } else if (analysisResult.file_url) {
+            console.log('📄 Using fallback file_url for printing:', analysisResult.file_url);
             if (isDesktopApp && (window as any).electronAPI?.printDocument) {
                 // Use desktop app print functionality for fallback URL
+                console.log('🖨️ Calling desktop app print function with fallback URL...');
                 try {
-                    await (window as any).electronAPI.printDocument(analysisResult.file_url);
+                    const result = await (window as any).electronAPI.printDocument(analysisResult.file_url);
+                    console.log('✅ Desktop print result:', result);
                 } catch (error) {
-                    console.error('Desktop print failed:', error);
+                    console.error('❌ Desktop print failed:', error);
                     alert('Gagal mencetak dokumen. Silakan coba lagi.');
                 }
             } else {
+                console.log('🌐 Using browser print functionality with fallback URL');
                 // Fallback to file_url from analysis result
                 const printWindow = window.open(analysisResult.file_url, '_blank');
                 if (printWindow) {
@@ -114,6 +128,9 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
                 }
             }
         } else {
+            console.log('❌ No valid URL available for printing');
+            console.log('- previewUrl:', previewUrl);
+            console.log('- analysisResult.file_url:', analysisResult.file_url);
             alert('Dokumen tidak tersedia untuk dicetak. Silakan upload ulang dokumen.');
         }
 

@@ -2,6 +2,7 @@
   "name": "cetakcerdas-desktop",
   "version": "1.0.0",
   "description": "Desktop application for Cetak Cerdas",
+  "type": "module",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",

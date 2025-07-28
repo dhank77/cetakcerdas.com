@@ -1,11 +1,18 @@
-const { app, BrowserWindow, Menu, dialog, shell, ipcMain } = require('electron');
-const path = require('path');
-const { spawn } = require('child_process');
-const fs = require('fs');
-const fetch = require('node-fetch');
-const express = require('express');
-const cors = require('cors');
-const multer = require('multer');
+import { app, BrowserWindow, Menu, dialog, shell, ipcMain } from 'electron';
+import path from 'path';
+import { spawn } from 'child_process';
+import fs from 'fs';
+import fetch from 'node-fetch';
+import express from 'express';
+import cors from 'cors';
+import multer from 'multer';
+import FormData from 'form-data';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+// ES6 module equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Configuration
 const CONFIG = {
@@ -20,7 +27,6 @@ let loadingWindow;
 let pythonProcess;
 let localServer;
 let laravelProcess;
-let servicesReady = false;
 
 // Create loading window
 function createLoadingWindow() {
@@ -237,7 +243,6 @@ function startPythonService() {
         updateLoadingStatus('Starting local services...');
         startProxyServer(pythonPort).then(() => {
           updateLoadingStatus('Services ready! Loading application...');
-          servicesReady = true;
           resolve();
         }).catch(reject);
       }
@@ -253,7 +258,6 @@ function startPythonService() {
         console.log(`Timeout reached after ${timeout}ms, attempting to start proxy anyway...`);
         updateLoadingStatus('Timeout reached, starting anyway...');
         startProxyServer(pythonPort).then(() => {
-          servicesReady = true;
           resolve();
         }).catch(reject);
       }
@@ -284,7 +288,6 @@ function startProxyServer(pythonPort) {
         const photoThreshold = parseFloat(req.query.photo_threshold) || 30.0;
 
         // Forward request to Python server
-        const FormData = require('form-data');
         const form = new FormData();
         form.append('file', req.file.buffer, {
           filename: req.file.originalname,
@@ -355,7 +358,6 @@ function startProxyServer(pythonPort) {
         if (req.query.threshold_photo) photoThreshold = parseFloat(req.query.threshold_photo);
 
         // Forward request to Python server for analysis
-        const FormData = require('form-data');
         const form = new FormData();
         form.append('file', req.file.buffer, {
           filename: req.file.originalname,
@@ -488,7 +490,6 @@ function startFallbackProxy() {
         const photoThreshold = parseFloat(req.query.photo_threshold) || 30.0;
 
         // Forward request to online FastAPI service
-        const FormData = require('form-data');
         const form = new FormData();
         form.append('file', req.file.buffer, {
           filename: req.file.originalname,
@@ -522,7 +523,6 @@ function startFallbackProxy() {
         }
 
         // Forward request to online Laravel service
-        const FormData = require('form-data');
         const form = new FormData();
         form.append('file', req.file.buffer, {
           filename: req.file.originalname,
@@ -596,7 +596,6 @@ function startFallbackProxy() {
     localServer = app.listen(CONFIG.LOCAL_PORT, '127.0.0.1', () => {
       console.log(`Fallback proxy server running on port ${CONFIG.LOCAL_PORT}, forwarding to online service`);
       updateLoadingStatus('Online service ready! Loading application...');
-      servicesReady = true;
       resolve();
     });
 
@@ -749,51 +748,67 @@ function createMenu() {
 function setupIpcHandlers() {
   // Handle print document request
   ipcMain.handle('print-document', async (event, url) => {
+    console.log('🖨️ Print document request received with URL:', url);
     try {
       if (!mainWindow) {
+        console.error('❌ Main window not available');
         throw new Error('Main window not available');
       }
       
-      // Create a new window for printing
+      console.log('✅ Creating print window...');
+      // Create a new window for printing (show as new tab)
       const printWindow = new BrowserWindow({
         width: 800,
         height: 600,
-        show: false,
+        show: true, // Show the window like a new tab
         webPreferences: {
           nodeIntegration: false,
           contextIsolation: true
-        }
+        },
+        title: 'Print Preview'
       });
       
+      console.log('📄 Loading document URL:', url);
       // Load the document URL
       await printWindow.loadURL(url);
       
+      console.log('⏳ Waiting for page to load...');
       // Wait for the page to load completely
       await new Promise((resolve) => {
-        printWindow.webContents.once('did-finish-load', resolve);
+        printWindow.webContents.once('did-finish-load', () => {
+          console.log('✅ Page loaded successfully');
+          resolve();
+        });
       });
       
-      // Print the document
-      printWindow.webContents.print({
-        silent: false,
-        printBackground: true,
-        deviceName: '',
-        color: true,
-        margins: {
-          marginType: 'printableArea'
-        },
-        landscape: false,
-        scaleFactor: 100
-      }, (success, failureReason) => {
-        if (!success) {
-          console.error('Print failed:', failureReason);
-        }
-        printWindow.close();
-      });
+      console.log('🖨️ Showing print dialog in 1 second...');
+      // Show print dialog automatically after page loads
+      setTimeout(() => {
+        console.log('🖨️ Opening print dialog now');
+        printWindow.webContents.print({
+          silent: false,
+          printBackground: true,
+          deviceName: '',
+          color: true,
+          margins: {
+            marginType: 'printableArea'
+          },
+          landscape: false,
+          scaleFactor: 100
+        }, (success, failureReason) => {
+          if (!success) {
+            console.error('❌ Print failed:', failureReason);
+          } else {
+            console.log('✅ Print dialog opened successfully');
+          }
+          // Don't auto-close the window, let user close it manually
+        });
+      }, 1000); // Wait 1 second for page to fully render
       
+      console.log('✅ Print document handler completed successfully');
       return { success: true };
     } catch (error) {
-      console.error('Print error:', error);
+      console.error('❌ Print error:', error);
       return { success: false, error: error.message };
     }
   });
@@ -823,7 +838,6 @@ app.whenReady().then(async () => {
     } else {
       // In dev mode, just mark services as ready
       updateLoadingStatus('Development mode - Loading application...');
-      servicesReady = true;
     }
     
     // Wait a moment for services to fully initialize, then create main window

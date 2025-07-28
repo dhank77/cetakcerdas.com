@@ -1,0 +1,36 @@
+[search]
+exclude = [
+  "node_modules",
+  "build",
+  "dist", 
+  "out",
+  "frontend-build",
+  ".git",
+  "coverage",
+  "tmp",
+  "temp",
+  ".electron",
+  "false",
+  "python-service/__pycache__"
+]
+
+[files]
+ignore_patterns = [
+  "*.log",
+  "*.tmp",
+  "*.temp",
+  ".DS_Store",
+  "*.pyc",
+  "__pycache__"
+]
+
+[indexing]
+max_file_size = "10MB"
+exclude_dirs = [
+  "node_modules",
+  ".git",
+  "build",
+  "dist",
+  "out",
+  "frontend-build"
+]

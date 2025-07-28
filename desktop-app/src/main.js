@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, dialog, shell } = require('electron');
+const { app, BrowserWindow, Menu, dialog, shell, ipcMain } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -68,14 +68,14 @@ function createWindow() {
     titleBarStyle: 'default'
   });
 
-  // Load the application with login as default
+  // Load the application with protected-print as default
   if (CONFIG.isDev) {
     // Development mode - connect to Laravel dev server
-    mainWindow.loadURL('http://localhost:8000/login');
+    mainWindow.loadURL('http://localhost:8000/protected-print');
     mainWindow.webContents.openDevTools();
   } else {
-    // Production mode - load cetakcerdas.com/login directly
-    mainWindow.loadURL(`${CONFIG.SERVER_URL}/login`);
+    // Production mode - load cetakcerdas.com/protected-print directly
+    mainWindow.loadURL(`${CONFIG.SERVER_URL}/protected-print`);
   }
 
   // Show window when ready and hide loading window
@@ -745,9 +745,66 @@ function createMenu() {
   Menu.setApplicationMenu(menu);
 }
 
+// Setup IPC handlers
+function setupIpcHandlers() {
+  // Handle print document request
+  ipcMain.handle('print-document', async (event, url) => {
+    try {
+      if (!mainWindow) {
+        throw new Error('Main window not available');
+      }
+      
+      // Create a new window for printing
+      const printWindow = new BrowserWindow({
+        width: 800,
+        height: 600,
+        show: false,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true
+        }
+      });
+      
+      // Load the document URL
+      await printWindow.loadURL(url);
+      
+      // Wait for the page to load completely
+      await new Promise((resolve) => {
+        printWindow.webContents.once('did-finish-load', resolve);
+      });
+      
+      // Print the document
+      printWindow.webContents.print({
+        silent: false,
+        printBackground: true,
+        deviceName: '',
+        color: true,
+        margins: {
+          marginType: 'printableArea'
+        },
+        landscape: false,
+        scaleFactor: 100
+      }, (success, failureReason) => {
+        if (!success) {
+          console.error('Print failed:', failureReason);
+        }
+        printWindow.close();
+      });
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Print error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+}
+
 // App event handlers
 app.whenReady().then(async () => {
   try {
+    // Setup IPC handlers
+    setupIpcHandlers();
+    
     // Create loading window first
     createLoadingWindow();
     

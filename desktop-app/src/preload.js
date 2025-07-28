@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+import { contextBridge, ipcRenderer } from 'electron';
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
@@ -11,6 +11,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // PDF Analysis
   analyzeDocument: (fileData) => ipcRenderer.invoke('analyze-document', fileData),
+  
+  // Print functionality
+  printDocument: (url) => ipcRenderer.invoke('print-document', url),
   
   // Settings
   getSettings: () => ipcRenderer.invoke('get-settings'),

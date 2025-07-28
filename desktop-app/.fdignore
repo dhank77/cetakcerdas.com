@@ -1,0 +1,12 @@
+node_modules/
+build/
+dist/
+out/
+frontend-build/
+.git/
+coverage/
+tmp/
+temp/
+.electron/
+false/
+python-service/__pycache__/

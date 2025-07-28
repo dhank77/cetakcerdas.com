@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AnalysisResult } from '@/types/analysis';
@@ -39,7 +40,7 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
         setIsItemAdded(false);
     }, [analysisResult]);
 
-    const addToCart = () => {
+    const addToCart = async () => {
         if (!analysisResult) return;
 
         const cartItem = {
@@ -69,24 +70,48 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
         // Dispatch custom event to notify cart update
         window.dispatchEvent(new CustomEvent('cartUpdated'));
 
+        // Check if running in desktop app
+        const isDesktopApp = (window as any).desktopAPI?.isDesktop;
+        
         if (previewUrl && previewUrl !== 'docx-pending' && previewUrl !== 'docx-info') {
-            const printWindow = window.open(previewUrl, '_blank');
-            if (printWindow) {
-                printWindow.onload = () => {
-                    setTimeout(() => {
-                        printWindow.print();
-                    }, 1000);
-                };
+            if (isDesktopApp && (window as any).electronAPI?.printDocument) {
+                // Use desktop app print functionality
+                try {
+                    await (window as any).electronAPI.printDocument(previewUrl);
+                } catch (error) {
+                    console.error('Desktop print failed:', error);
+                    alert('Gagal mencetak dokumen. Silakan coba lagi.');
+                }
+            } else {
+                // Use browser print functionality
+                const printWindow = window.open(previewUrl, '_blank');
+                if (printWindow) {
+                    printWindow.onload = () => {
+                        setTimeout(() => {
+                            printWindow.print();
+                        }, 1000);
+                    };
+                }
             }
         } else if (analysisResult.file_url) {
-            // Fallback to file_url from analysis result
-            const printWindow = window.open(analysisResult.file_url, '_blank');
-            if (printWindow) {
-                printWindow.onload = () => {
-                    setTimeout(() => {
-                        printWindow.print();
-                    }, 1000);
-                };
+            if (isDesktopApp && (window as any).electronAPI?.printDocument) {
+                // Use desktop app print functionality for fallback URL
+                try {
+                    await (window as any).electronAPI.printDocument(analysisResult.file_url);
+                } catch (error) {
+                    console.error('Desktop print failed:', error);
+                    alert('Gagal mencetak dokumen. Silakan coba lagi.');
+                }
+            } else {
+                // Fallback to file_url from analysis result
+                const printWindow = window.open(analysisResult.file_url, '_blank');
+                if (printWindow) {
+                    printWindow.onload = () => {
+                        setTimeout(() => {
+                            printWindow.print();
+                        }, 1000);
+                    };
+                }
             }
         } else {
             alert('Dokumen tidak tersedia untuk dicetak. Silakan upload ulang dokumen.');

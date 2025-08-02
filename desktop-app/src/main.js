@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { app, BrowserWindow, Menu, dialog, shell, ipcMain } from 'electron';
 import path from 'path';
 import { spawn } from 'child_process';
@@ -27,6 +28,152 @@ const CONFIG = {
 
 // Disable SSL certificate validation for development
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
+// Enhanced network handling configuration
+const NETWORK_TIMEOUT = 30000; // 30 seconds
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 second
+
+/**
+ * Enhanced fetch with retry mechanism and better error handling
+ * @param {string} url - URL to fetch
+ * @param {Object} options - Fetch options
+ * @param {number} retries - Number of retries
+ * @returns {Promise<Response>} Fetch response
+ */
+async function fetchWithRetry(url, options = {}, retries = MAX_RETRIES) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), NETWORK_TIMEOUT);
+  
+  const enhancedOptions = {
+    ...options,
+    signal: controller.signal,
+    headers: {
+      ...options.headers,
+      'User-Agent': 'CetakCerdas-Desktop-App/1.0.0',
+      'Accept': 'application/json',
+    }
+  };
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      console.log(`Fetching ${url} (attempt ${attempt}/${retries})`);
+      
+      const response = await fetch(url, enhancedOptions);
+      clearTimeout(timeoutId);
+      
+      // Handle specific status codes with better error messages
+      if (response.status === 419) {
+        console.warn('Proxy authentication required, attempting alternative strategies');
+        throw new Error('PROXY_AUTH_REQUIRED');
+      }
+      
+      if (response.status === 403) {
+        console.warn('Access forbidden, checking server availability');
+        throw new Error('ACCESS_FORBIDDEN');
+      }
+      
+      if (response.status === 429) {
+        console.warn('Rate limited, waiting before retry');
+        if (attempt < retries) {
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * attempt * 2));
+          continue;
+        }
+      }
+      
+      if (response.status >= 500) {
+        console.warn(`Server error ${response.status}, retrying...`);
+        if (attempt < retries) {
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * attempt));
+          continue;
+        }
+      }
+      
+      return response;
+      
+    } catch (error) {
+      clearTimeout(timeoutId);
+      
+      if (error.name === 'AbortError') {
+        console.warn(`Request timeout for ${url}`);
+        if (attempt < retries) {
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * attempt));
+          continue;
+        }
+        throw new Error('Network timeout - please check your internet connection');
+      }
+      
+      if (error.message === 'PROXY_AUTH_REQUIRED' || error.message.includes('proxy')) {
+        throw new Error('Network proxy authentication required. Please configure proxy settings or contact your network administrator.');
+      }
+      
+      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+        console.warn(`Server unreachable: ${error.code}`);
+        if (attempt < retries) {
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * attempt));
+          continue;
+        }
+        throw new Error('Unable to connect to the server. Please check your internet connection or try again later.');
+      }
+      
+      if (error.code === 'ETIMEDOUT') {
+        console.warn(`Connection timeout: ${error.code}`);
+        if (attempt < retries) {
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * attempt));
+          continue;
+        }
+        throw new Error('Connection timeout - server may be temporarily unavailable');
+      }
+      
+      if (attempt < retries) {
+        console.warn(`Network error (attempt ${attempt}/${retries}): ${error.message}`);
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * attempt));
+      } else {
+        throw new Error(`Network connection failed after ${retries} attempts. ${error.message}`);
+      }
+    }
+  }
+}
+
+/**
+ * Check if server is available with health check
+ * @param {string} serverUrl - Server URL to check
+ * @returns {Promise<boolean>} Whether server is available
+ */
+async function checkServerHealth(serverUrl) {
+  try {
+    const response = await fetchWithRetry(`${serverUrl}/api/health`, { method: 'GET' }, 1);
+    return response.ok;
+  } catch (error) {
+    console.warn('Server health check failed:', error.message);
+    return false;
+  }
+}
+
+/**
+ * Alternative connection strategies for network issues
+ * @param {string} originalUrl - Original URL
+ * @param {Object} options - Request options
+ * @returns {Promise<Response>} Response from alternative connection
+ */
+async function connectWithAlternatives(originalUrl, options = {}) {
+  const alternatives = [
+    originalUrl,
+    originalUrl.replace('https://', 'http://'), // Fallback to HTTP
+  ];
+  
+  for (const url of alternatives) {
+    try {
+      console.log(`Trying alternative connection: ${url}`);
+      const response = await fetchWithRetry(url, options, 2);
+      if (response.ok) return response;
+    } catch (error) {
+      console.warn(`Alternative connection failed for ${url}:`, error.message);
+    }
+  }
+  
+  throw new Error('All connection attempts failed. Please check your internet connection.');
+}
 
 let mainWindow;
 let loadingWindow;
@@ -415,7 +562,7 @@ function startProxyServer() {
               contentType: req.file.mimetype
             });
             
-            const response = await fetch(`http://127.0.0.1:${pythonServicePort}/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`, {
+            const response = await fetchWithRetry(`http://127.0.0.1:${pythonServicePort}/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`, {
               method: 'POST',
               body: form,
               headers: form.getHeaders()
@@ -441,13 +588,16 @@ function startProxyServer() {
           contentType: req.file.mimetype
         });
         
-        const response = await fetch(`${CONFIG.SERVER_URL}/api/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`, {
+        const response = await fetchWithRetry(`${CONFIG.SERVER_URL}/api/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`, {
           method: 'POST',
           body: form,
           headers: form.getHeaders()
         });
         
         if (!response.ok) {
+          if (response.status === 419) {
+            throw new Error(`Network proxy authentication required. Please check your internet connection or contact your network administrator.`);
+          }
           throw new Error(`Online service error: ${response.status} ${response.statusText}`);
         }
         
@@ -480,7 +630,7 @@ function startProxyServer() {
         // Try to get user settings from Laravel API if slug is provided
         if (slug && slug !== 'testing') {
           try {
-            const settingsResponse = await fetch(`${CONFIG.SERVER_URL}/api/user-settings/${slug}`);
+            const settingsResponse = await fetchWithRetry(`${CONFIG.SERVER_URL}/api/user-settings/${slug}`);
             if (settingsResponse.ok) {
               const settingsData = await settingsResponse.json();
               if (settingsData.success && settingsData.data) {
@@ -491,6 +641,8 @@ function startProxyServer() {
                 colorThreshold = settings.threshold_color || colorThreshold;
                 photoThreshold = settings.threshold_photo || photoThreshold;
               }
+            } else if (settingsResponse.status === 419) {
+              console.log('Network proxy authentication required for settings fetch, using defaults');
             }
           } catch (settingsError) {
             console.log('Could not fetch user settings, using defaults:', settingsError.message);
@@ -507,7 +659,7 @@ function startProxyServer() {
               contentType: req.file.mimetype
             });
             
-            const response = await fetch(`http://127.0.0.1:${pythonServicePort}/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`, {
+            const response = await fetchWithRetry(`http://127.0.0.1:${pythonServicePort}/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`, {
               method: 'POST',
               body: form,
               headers: form.getHeaders()
@@ -569,13 +721,16 @@ function startProxyServer() {
         const queryString = queryParams.toString();
         const url = `${CONFIG.SERVER_URL}/calculate-price${queryString ? '?' + queryString : ''}`;
         
-        const response = await fetch(url, {
+        const response = await fetchWithRetry(url, {
           method: 'POST',
           body: form,
           headers: form.getHeaders()
         });
         
         if (!response.ok) {
+          if (response.status === 419) {
+            throw new Error(`Network proxy authentication required. Please check your internet connection or contact your network administrator.`);
+          }
           throw new Error(`Online service error: ${response.status} ${response.statusText}`);
         }
         
@@ -626,7 +781,7 @@ function startProxyServer() {
         const targetUrl = `${CONFIG.SERVER_URL}${req.originalUrl}`;
         console.log(`Proxying web request: ${req.originalUrl} -> ${targetUrl}`);
         
-        const response = await fetch(targetUrl, {
+        const response = await fetchWithRetry(targetUrl, {
           method: req.method,
           headers: {
             ...req.headers,
@@ -669,7 +824,15 @@ function startProxyServer() {
         
       } catch (error) {
         console.error('Proxy error:', error);
-        res.status(500).json({ error: 'Proxy server error', details: error.message });
+        if (error.message.includes('419') || error.message.includes('proxy')) {
+          res.status(503).json({ 
+            error: 'Network proxy authentication required', 
+            details: 'Your network requires proxy authentication. Please check your internet connection or contact your network administrator.',
+            code: 'PROXY_AUTH_REQUIRED'
+          });
+        } else {
+          res.status(500).json({ error: 'Proxy server error', details: error.message });
+        }
       }
     });
     
@@ -699,6 +862,49 @@ function startProxyServer() {
       reject(error);
     });
   });
+}
+
+// Network diagnostics and proxy detection
+async function performNetworkDiagnostics() {
+  console.log('Performing network diagnostics...');
+  
+  const diagnostics = {
+    timestamp: new Date().toISOString(),
+    server_url: CONFIG.SERVER_URL,
+    network_status: 'unknown',
+    proxy_detected: false,
+    server_reachable: false,
+    recommendations: []
+  };
+
+  try {
+    // Test basic internet connectivity
+    const internetTest = await fetchWithRetry('https://httpbin.org/ip', { method: 'GET' }, 1);
+    if (internetTest.ok) {
+      diagnostics.network_status = 'connected';
+    }
+  } catch (error) {
+    diagnostics.network_status = 'disconnected';
+    diagnostics.recommendations.push('Check your internet connection');
+  }
+
+  try {
+    // Test server reachability
+    const serverReachable = await checkServerHealth(CONFIG.SERVER_URL);
+    diagnostics.server_reachable = serverReachable;
+    if (!serverReachable) {
+      diagnostics.recommendations.push('Server may be temporarily unavailable');
+    }
+  } catch (error) {
+    diagnostics.server_reachable = false;
+    if (error.message.includes('proxy')) {
+      diagnostics.proxy_detected = true;
+      diagnostics.recommendations.push('Configure proxy settings in your system');
+    }
+  }
+
+  console.log('Network diagnostics completed:', diagnostics);
+  return diagnostics;
 }
 
 // Start fallback proxy that forwards all requests to online service
@@ -732,13 +938,16 @@ function startFallbackProxy() {
           contentType: req.file.mimetype
         });
 
-        const response = await fetch(`${CONFIG.SERVER_URL}/api/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`, {
+        const response = await fetchWithRetry(`${CONFIG.SERVER_URL}/api/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`, {
           method: 'POST',
           body: form,
           headers: form.getHeaders()
         });
 
         if (!response.ok) {
+          if (response.status === 419) {
+            throw new Error(`Network proxy authentication required. Please check your internet connection or contact your network administrator.`);
+          }
           throw new Error(`Online service error: ${response.status} ${response.statusText}`);
         }
 
@@ -784,6 +993,9 @@ function startFallbackProxy() {
         });
 
         if (!response.ok) {
+          if (response.status === 419) {
+            throw new Error(`Network proxy authentication required. Please check your internet connection or contact your network administrator.`);
+          }
           throw new Error(`Online service error: ${response.status} ${response.statusText}`);
         }
 
@@ -832,6 +1044,17 @@ function startFallbackProxy() {
     localServer = app.listen(CONFIG.LOCAL_PORT, '127.0.0.1', () => {
       console.log(`Fallback proxy server running on port ${CONFIG.LOCAL_PORT}, forwarding to online service`);
       updateLoadingStatus('Online service ready! Loading application...');
+      
+      // Perform network diagnostics after server starts
+      performNetworkDiagnostics().then(diagnostics => {
+        if (!diagnostics.server_reachable) {
+          console.warn('Server connectivity issues detected:', diagnostics.recommendations);
+          updateLoadingStatus('Network issues detected - using fallback mode');
+        }
+      }).catch(error => {
+        console.error('Network diagnostics failed:', error);
+      });
+      
       resolve();
     });
 
@@ -1178,7 +1401,7 @@ function setupLocalFileHandlers() {
       if (pythonServicePort) {
         try {
           // Test if the Python service is accessible
-          const testResponse = await fetch(`http://127.0.0.1:${pythonServicePort}/`, {
+          const testResponse = await fetchWithRetry(`http://127.0.0.1:${pythonServicePort}/`, {
             method: 'GET',
             timeout: 5000 // 5 second timeout
           });
@@ -1201,7 +1424,7 @@ function setupLocalFileHandlers() {
         
         // Use local Python service if available
         const pythonPort = pythonServicePort;
-        const response = await fetch(`http://127.0.0.1:${pythonPort}/analyze-document?color_threshold=20&photo_threshold=30`, {
+        const response = await fetchWithRetry(`http://127.0.0.1:${pythonPort}/analyze-document?color_threshold=20&photo_threshold=30`, {
           method: 'POST',
           body: form,
           headers: form.getHeaders()
@@ -1504,8 +1727,23 @@ app.whenReady().then(async () => {
     
   } catch (error) {
     console.error('Failed to start services:', error);
-    console.log('Continuing with basic functionality only');
-    updateLoadingStatus('Service setup failed, loading anyway...');
+    
+    // Perform network diagnostics for better error messages
+    try {
+      const diagnostics = await performNetworkDiagnostics();
+      console.warn('Network diagnostics:', diagnostics);
+      
+      if (diagnostics.proxy_detected) {
+        updateLoadingStatus('Network proxy detected - please configure proxy settings');
+      } else if (!diagnostics.server_reachable) {
+        updateLoadingStatus('Cannot reach server - checking network...');
+      } else {
+        updateLoadingStatus('Service setup failed, loading anyway...');
+      }
+    } catch (diagError) {
+      console.error('Network diagnostics failed:', diagError);
+      updateLoadingStatus('Service setup failed, loading anyway...');
+    }
     
     // Still create the main window even if services fail
     setTimeout(() => {

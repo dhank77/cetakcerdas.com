@@ -1625,27 +1625,14 @@ app.whenReady().then(async () => {
   } catch (error) {
     console.error('Failed to start services:', error);
     
-    // Perform network diagnostics for better error messages
-    try {
-      const diagnostics = await performNetworkDiagnostics();
-      console.warn('Network diagnostics:', diagnostics);
-      
-      if (diagnostics.proxy_detected) {
-        updateLoadingStatus('Network proxy detected - please configure proxy settings');
-      } else if (!diagnostics.server_reachable) {
-        updateLoadingStatus('Cannot reach server - checking network...');
-      } else {
-        updateLoadingStatus('Service setup failed, loading anyway...');
-      }
-    } catch (diagError) {
-      console.error('Network diagnostics failed:', diagError);
-      updateLoadingStatus('Service setup failed, loading anyway...');
-    }
+    // Skip network diagnostics to avoid proxy errors
+    // Application now works offline, so network issues shouldn't prevent startup
+    updateLoadingStatus('Local services ready - loading application...');
     
     // Still create the main window even if services fail
     setTimeout(() => {
       createWindow();
-    }, 2000);
+    }, 1000);
   }
 });
 

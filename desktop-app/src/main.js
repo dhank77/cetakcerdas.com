@@ -579,28 +579,8 @@ function startProxyServer() {
           }
         }
         
-        // Fallback to online service
-        const form = new FormData();
-        form.append('file', req.file.buffer, {
-          filename: req.file.originalname,
-          contentType: req.file.mimetype
-        });
-        
-        const response = await fetchWithRetry(`${CONFIG.SERVER_URL}/api/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`, {
-          method: 'POST',
-          body: form,
-          headers: form.getHeaders()
-        });
-        
-        if (!response.ok) {
-          if (response.status === 419) {
-            throw new Error(`Network proxy authentication required. Please check your internet connection or contact your network administrator.`);
-          }
-          throw new Error(`Online service error: ${response.status} ${response.statusText}`);
-        }
-        
-        const result = await response.json();
-        res.json(result);
+        // No fallback to online service - application works offline only
+        throw new Error('Python service not available and no online fallback configured for offline mode');
         
       } catch (error) {
         console.error('PDF analysis error:', error);
@@ -625,27 +605,9 @@ function startProxyServer() {
         let colorThreshold = 20;
         let photoThreshold = 30;
         
-        // Try to get user settings from Laravel API if slug is provided
-        if (slug && slug !== 'testing') {
-          try {
-            const settingsResponse = await fetchWithRetry(`${CONFIG.SERVER_URL}/api/user-settings/${slug}`);
-            if (settingsResponse.ok) {
-              const settingsData = await settingsResponse.json();
-              if (settingsData.success && settingsData.data) {
-                const settings = settingsData.data;
-                priceSettingColor = settings.color_price || priceSettingColor;
-                priceSettingPhoto = settings.photo_price || settings.color_price || priceSettingPhoto;
-                priceSettingBw = settings.bw_price || priceSettingBw;
-                colorThreshold = settings.threshold_color || colorThreshold;
-                photoThreshold = settings.threshold_photo || photoThreshold;
-              }
-            } else if (settingsResponse.status === 419) {
-              console.log('Network proxy authentication required for settings fetch, using defaults');
-            }
-          } catch (settingsError) {
-            console.log('Could not fetch user settings, using defaults:', settingsError.message);
-          }
-        }
+        // Application works offline - using default settings only
+        // No network fetch for user settings in offline mode
+        console.log('Using default settings for offline mode');
         
         // Check if Python service is available
         if (pythonServicePort) {
@@ -862,47 +824,18 @@ function startProxyServer() {
   });
 }
 
-// Network diagnostics and proxy detection
+// Network diagnostics removed - application works offline only
 async function performNetworkDiagnostics() {
-  console.log('Performing network diagnostics...');
+  console.log('Network diagnostics disabled for offline mode');
   
-  const diagnostics = {
+  // Return offline status for compatibility
+  return {
     timestamp: new Date().toISOString(),
-    server_url: CONFIG.SERVER_URL,
-    network_status: 'unknown',
+    network_status: 'offline_mode',
     proxy_detected: false,
     server_reachable: false,
-    recommendations: []
+    recommendations: ['Application running in offline mode']
   };
-
-  try {
-    // Test basic internet connectivity
-    const internetTest = await fetchWithRetry('https://httpbin.org/ip', { method: 'GET' }, 1);
-    if (internetTest.ok) {
-      diagnostics.network_status = 'connected';
-    }
-  } catch (error) {
-    diagnostics.network_status = 'disconnected';
-    diagnostics.recommendations.push('Check your internet connection');
-  }
-
-  try {
-    // Test server reachability
-    const serverReachable = await checkServerHealth(CONFIG.SERVER_URL);
-    diagnostics.server_reachable = serverReachable;
-    if (!serverReachable) {
-      diagnostics.recommendations.push('Server may be temporarily unavailable');
-    }
-  } catch (error) {
-    diagnostics.server_reachable = false;
-    if (error.message.includes('proxy')) {
-      diagnostics.proxy_detected = true;
-      diagnostics.recommendations.push('Configure proxy settings in your system');
-    }
-  }
-
-  console.log('Network diagnostics completed:', diagnostics);
-  return diagnostics;
 }
 
 // Start local server for calculate-price only (no network dependency)

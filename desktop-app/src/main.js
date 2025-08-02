@@ -408,12 +408,28 @@ async function startPythonService() {
         if (process.platform === 'win32') {
           spawnOptions.encoding = 'utf8';
           spawnOptions.windowsHide = true;
+          
+          // If using PowerShell script, set shell to PowerShell
+          if (pythonExePath.endsWith('.ps1')) {
+            spawnOptions.shell = 'powershell.exe';
+          }
         }
         
         // Python arguments for the service
         const pythonArgs = ['--mode', 'server', '--host', '127.0.0.1', '--port', pythonServicePort.toString()];
         
-        pythonProcess = spawn(pythonExePath, pythonArgs, spawnOptions);
+        // Handle PowerShell script execution
+        let executablePath = pythonExePath;
+        let executableArgs = pythonArgs;
+        
+        if (process.platform === 'win32' && pythonExePath.endsWith('.ps1')) {
+          // For PowerShell scripts, use powershell.exe with proper arguments
+          executablePath = 'powershell.exe';
+          executableArgs = ['-ExecutionPolicy', 'Bypass', '-File', pythonExePath, ...pythonArgs];
+          delete spawnOptions.shell; // Remove shell option when explicitly using powershell.exe
+        }
+        
+        pythonProcess = spawn(executablePath, executableArgs, spawnOptions);
         
         console.log('Python process spawned with PID:', pythonProcess.pid);
         
@@ -882,11 +898,18 @@ function getPythonExecutablePath() {
   // Improved file detection for different platforms
   let exeName;
   if (platform === 'win32') {
-    // Use UTF-8 wrapper batch file for Windows to handle encoding issues
-    const wrapperPath = path.join(basePath, 'run_python_utf8.bat');
-    if (fs.existsSync(wrapperPath)) {
-      console.log(`Found Python UTF-8 wrapper: ${wrapperPath}`);
-      return wrapperPath;
+    // Try PowerShell script first for better UTF-8 handling
+    const psWrapperPath = path.join(basePath, 'run_python_utf8.ps1');
+    if (fs.existsSync(psWrapperPath)) {
+      console.log(`Found Python UTF-8 PowerShell wrapper: ${psWrapperPath}`);
+      return psWrapperPath;
+    }
+    
+    // Try batch file wrapper
+    const batWrapperPath = path.join(basePath, 'run_python_utf8.bat');
+    if (fs.existsSync(batWrapperPath)) {
+      console.log(`Found Python UTF-8 batch wrapper: ${batWrapperPath}`);
+      return batWrapperPath;
     }
     
     // Fallback to direct executable if wrapper not found

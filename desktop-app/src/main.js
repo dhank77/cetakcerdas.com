@@ -410,13 +410,8 @@ async function startPythonService() {
           spawnOptions.windowsHide = true;
         }
         
-        // Add Python arguments for UTF-8 encoding on Windows
+        // Python arguments for the service
         const pythonArgs = ['--mode', 'server', '--host', '127.0.0.1', '--port', pythonServicePort.toString()];
-        
-        if (process.platform === 'win32') {
-          // Add Python flags for UTF-8 encoding
-          pythonArgs.unshift('-X', 'utf8');
-        }
         
         pythonProcess = spawn(pythonExePath, pythonArgs, spawnOptions);
         

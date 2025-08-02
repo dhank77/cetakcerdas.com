@@ -192,7 +192,7 @@ async function findAvailablePort(basePort, maxAttempts = 10) {
 }
 
 // Global variable to store the actual port being used
-let pythonServicePort = CONFIG.PYTHON_PORT;
+let pythonServicePort = null;
 
 // Start Python service in server mode
 async function startPythonService() {
@@ -217,6 +217,14 @@ async function startPythonService() {
     // Check if file is executable on Windows
     if (process.platform === 'win32') {
       try {
+        // Check if file exists first
+        if (!fs.existsSync(pythonExePath)) {
+          console.error('Python executable not found at path:', pythonExePath);
+          updateLoadingStatus('PDF analyzer not found, using online service...');
+          reject(new Error('Python service executable not found at ' + pythonExePath));
+          return;
+        }
+        
         fs.accessSync(pythonExePath, fs.constants.F_OK | fs.constants.R_OK);
         console.log('Python executable is accessible on Windows');
       } catch (accessError) {
@@ -225,9 +233,19 @@ async function startPythonService() {
         reject(new Error('Python service executable access denied'));
         return;
       }
+    } else {
+      // Check if file exists on other platforms
+      if (!fs.existsSync(pythonExePath)) {
+        console.error('Python executable not found at path:', pythonExePath);
+        updateLoadingStatus('PDF analyzer not found, using online service...');
+        reject(new Error('Python service executable not found at ' + pythonExePath));
+        return;
+      }
     }
-
+    
     console.log('Starting Python service in server mode:', pythonExePath);
+    console.log('Python service file stats:', fs.statSync(pythonExePath));
+    console.log('Current working directory:', process.cwd());
     updateLoadingStatus('Finding available port for PDF analyzer service...');
     
     // Find an available port for the Python service
@@ -248,11 +266,16 @@ async function startPythonService() {
           pythonEnv.OBJC_DISABLE_INITIALIZE_FORK_SAFETY = 'YES';
         }
         
+        console.log('Spawning Python process with command:', pythonExePath, '--mode', 'server', '--host', '127.0.0.1', '--port', pythonServicePort.toString());
+        console.log('Python process environment:', pythonEnv);
+        
         pythonProcess = spawn(pythonExePath, ['--mode', 'server', '--host', '127.0.0.1', '--port', pythonServicePort.toString()], {
           stdio: ['ignore', 'pipe', 'pipe'],
           env: pythonEnv
         });
-
+        
+        console.log('Python process spawned with PID:', pythonProcess.pid);
+        
         let serverReady = false;
         
         pythonProcess.stdout.on('data', (data) => {
@@ -263,7 +286,7 @@ async function startPythonService() {
             updateLoadingStatus('PDF analyzer ready!');
           }
         });
-
+        
         pythonProcess.stderr.on('data', (data) => {
           const output = data.toString();
           console.log('Python server info:', output);
@@ -272,12 +295,21 @@ async function startPythonService() {
             updateLoadingStatus('PDF analyzer ready!');
           }
         });
-
+        
         pythonProcess.on('close', (code) => {
           console.log(`Python server exited with code ${code}`);
           pythonProcess = null;
+          pythonServicePort = null; // Clear port when process exits
         });
-
+        
+        pythonProcess.on('exit', (code, signal) => {
+          console.log(`Python process exited with code ${code} and signal ${signal}`);
+        });
+        
+        pythonProcess.on('disconnect', () => {
+          console.log('Python process disconnected');
+        });
+        
         pythonProcess.on('error', (error) => {
           console.error('Failed to start Python server:', error);
           console.error('Error code:', error.code);
@@ -297,10 +329,11 @@ async function startPythonService() {
           }
           
           updateLoadingStatus('PDF analyzer failed, using online service...');
+          pythonServicePort = null; // Clear port on error
           reject(error);
           return;
         });
-
+        
         // Wait for server to be ready, then start proxy
         const checkReady = setInterval(() => {
           if (serverReady) {
@@ -309,10 +342,13 @@ async function startPythonService() {
             startProxyServer().then(() => {
               updateLoadingStatus('Services ready! Loading application...');
               resolve();
-            }).catch(reject);
+            }).catch((error) => {
+              pythonServicePort = null; // Clear port on proxy error
+              reject(error);
+            });
           }
         }, 50);
-
+        
         // Platform-specific timeout - Windows may need more time
         const timeout = process.platform === 'win32' ? 30000 : 20000;
         
@@ -323,14 +359,25 @@ async function startPythonService() {
             console.log(`Timeout reached after ${timeout}ms, attempting to start proxy anyway...`);
             updateLoadingStatus('Timeout reached, starting anyway...');
             startProxyServer().then(() => {
-              resolve();
-            }).catch(reject);
+              // Only resolve if we actually have a valid port
+              if (pythonServicePort) {
+                updateLoadingStatus('Services ready! Loading application...');
+                resolve();
+              } else {
+                // If no port was set, reject with an error
+                reject(new Error('Python service failed to start properly'));
+              }
+            }).catch((error) => {
+              pythonServicePort = null; // Clear port on proxy error
+              reject(error);
+            });
           }
         }, timeout);
       })
       .catch((error) => {
         console.error('Failed to find available port:', error);
         updateLoadingStatus('Failed to find available port, using online service...');
+        pythonServicePort = null; // Clear port on error
         reject(error);
       });
   });
@@ -342,55 +389,84 @@ function startProxyServer() {
     const app = express();
     app.use(cors());
     app.use(express.json());
-
+    
     // Health check endpoint
     app.get('/', (req, res) => {
-      res.json({ status: 'online', mode: 'server_proxy' });
+      res.json({ status: 'online', mode: 'server_proxy', pythonServicePort: pythonServicePort });
     });
-
-    // PDF analysis endpoint - proxy to Python server
+    
+    // PDF analysis endpoint - proxy to Python server or fallback to online service
     app.post('/analyze-document', multer().single('file'), async (req, res) => {
       try {
         if (!req.file) {
           return res.status(400).json({ error: 'No file uploaded' });
         }
-
+        
         const colorThreshold = parseFloat(req.query.color_threshold) || 10.0;
         const photoThreshold = parseFloat(req.query.photo_threshold) || 30.0;
-
-        // Forward request to Python server
+        
+        // Check if Python service is available
+        if (pythonServicePort) {
+          try {
+            // Forward request to Python server
+            const form = new FormData();
+            form.append('file', req.file.buffer, {
+              filename: req.file.originalname,
+              contentType: req.file.mimetype
+            });
+            
+            const response = await fetch(`http://127.0.0.1:${pythonServicePort}/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`, {
+              method: 'POST',
+              body: form,
+              headers: form.getHeaders()
+            });
+            
+            if (!response.ok) {
+              throw new Error(`Python server error: ${response.status} ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            res.json(result);
+            return;
+          } catch (pythonError) {
+            console.error('Python service error, falling back to online service:', pythonError);
+            // Continue to online service fallback
+          }
+        }
+        
+        // Fallback to online service
         const form = new FormData();
         form.append('file', req.file.buffer, {
           filename: req.file.originalname,
           contentType: req.file.mimetype
         });
-
-        const response = await fetch(`http://127.0.0.1:${pythonServicePort}/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`, {
+        
+        const response = await fetch(`${CONFIG.SERVER_URL}/api/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`, {
           method: 'POST',
           body: form,
           headers: form.getHeaders()
         });
-
+        
         if (!response.ok) {
-          throw new Error(`Python server error: ${response.status} ${response.statusText}`);
+          throw new Error(`Online service error: ${response.status} ${response.statusText}`);
         }
-
+        
         const result = await response.json();
         res.json(result);
-
+        
       } catch (error) {
         console.error('PDF analysis error:', error);
         res.status(500).json({ error: error.message });
       }
     });
-
+    
     // Calculate price endpoint - includes analysis and price calculation
     app.post('/calculate-price', multer().single('file'), async (req, res) => {
       try {
         if (!req.file) {
           return res.status(400).json({ error: 'No file uploaded' });
         }
-
+        
         // Get slug from form data (same as Laravel frontend)
         const slug = req.body.slug || 'testing';
         
@@ -400,7 +476,7 @@ function startProxyServer() {
         let priceSettingBw = 500;
         let colorThreshold = 20;
         let photoThreshold = 30;
-
+        
         // Try to get user settings from Laravel API if slug is provided
         if (slug && slug !== 'testing') {
           try {
@@ -420,60 +496,96 @@ function startProxyServer() {
             console.log('Could not fetch user settings, using defaults:', settingsError.message);
           }
         }
-
-        // Parse query parameters for custom settings (override user settings if provided)
-        if (req.query.price_setting_photo) priceSettingPhoto = parseInt(req.query.price_setting_photo);
-        if (req.query.price_setting_color) priceSettingColor = parseInt(req.query.price_setting_color);
-        if (req.query.price_setting_bw) priceSettingBw = parseInt(req.query.price_setting_bw);
-        if (req.query.threshold_color) colorThreshold = parseFloat(req.query.threshold_color);
-        if (req.query.threshold_photo) photoThreshold = parseFloat(req.query.threshold_photo);
-
-        // Forward request to Python server for analysis
+        
+        // Check if Python service is available
+        if (pythonServicePort) {
+          try {
+            // Forward request to Python server for analysis
+            const form = new FormData();
+            form.append('file', req.file.buffer, {
+              filename: req.file.originalname,
+              contentType: req.file.mimetype
+            });
+            
+            const response = await fetch(`http://127.0.0.1:${pythonServicePort}/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`, {
+              method: 'POST',
+              body: form,
+              headers: form.getHeaders()
+            });
+            
+            if (response.ok) {
+              const analysisResult = await response.json();
+              
+              // Calculate prices based on analysis result
+              const priceColor = (analysisResult.color_pages || 0) * priceSettingColor;
+              const priceBw = (analysisResult.bw_pages || 0) * priceSettingBw;
+              const pricePhoto = (analysisResult.photo_pages || 0) * priceSettingPhoto;
+              const totalPrice = priceColor + priceBw + pricePhoto;
+              
+              // Return response in same format as Laravel controller
+              res.json({
+                price_color: priceColor,
+                price_bw: priceBw,
+                price_photo: pricePhoto,
+                total_price: totalPrice,
+                file_url: null, // No file storage in desktop app
+                file_name: req.file.originalname,
+                file_type: req.file.mimetype,
+                analysis_mode: 'local_desktop',
+                service_available: true,
+                pengaturan: {
+                  threshold_warna: colorThreshold.toString(),
+                  threshold_foto: photoThreshold.toString(),
+                  price_setting_color: priceSettingColor,
+                  price_setting_bw: priceSettingBw,
+                  price_setting_photo: priceSettingPhoto,
+                },
+                ...analysisResult,
+              });
+              return;
+            }
+          } catch (pythonError) {
+            console.error('Python service error for price calculation, falling back to online service:', pythonError);
+            // Continue to online service fallback
+          }
+        }
+        
+        // Fallback to online Laravel service
         const form = new FormData();
         form.append('file', req.file.buffer, {
           filename: req.file.originalname,
           contentType: req.file.mimetype
         });
-
-        const response = await fetch(`http://127.0.0.1:${pythonServicePort}/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`, {
+        
+        // Add query parameters if provided
+        const queryParams = new URLSearchParams();
+        if (req.query.slug) queryParams.append('slug', req.query.slug);
+        if (req.query.price_setting_photo) queryParams.append('price_setting_photo', req.query.price_setting_photo);
+        if (req.query.price_setting_color) queryParams.append('price_setting_color', req.query.price_setting_color);
+        if (req.query.price_setting_bw) queryParams.append('price_setting_bw', req.query.price_setting_bw);
+        if (req.query.threshold_color) queryParams.append('threshold_color', req.query.threshold_color);
+        if (req.query.threshold_photo) queryParams.append('threshold_photo', req.query.threshold_photo);
+        
+        const queryString = queryParams.toString();
+        const url = `${CONFIG.SERVER_URL}/calculate-price${queryString ? '?' + queryString : ''}`;
+        
+        const response = await fetch(url, {
           method: 'POST',
           body: form,
           headers: form.getHeaders()
         });
-
+        
         if (!response.ok) {
-          throw new Error(`Python server error: ${response.status} ${response.statusText}`);
+          throw new Error(`Online service error: ${response.status} ${response.statusText}`);
         }
-
-        const analysisResult = await response.json();
-
-        // Calculate prices based on analysis result
-        const priceColor = (analysisResult.color_pages || 0) * priceSettingColor;
-        const priceBw = (analysisResult.bw_pages || 0) * priceSettingBw;
-        const pricePhoto = (analysisResult.photo_pages || 0) * priceSettingPhoto;
-        const totalPrice = priceColor + priceBw + pricePhoto;
-
-        // Return response in same format as Laravel controller
-        res.json({
-          price_color: priceColor,
-          price_bw: priceBw,
-          price_photo: pricePhoto,
-          total_price: totalPrice,
-          file_url: null, // No file storage in desktop app
-          file_name: req.file.originalname,
-          file_type: req.file.mimetype,
-          analysis_mode: 'local_desktop',
-          service_available: true,
-          pengaturan: {
-            threshold_warna: colorThreshold.toString(),
-            threshold_foto: photoThreshold.toString(),
-            price_setting_color: priceSettingColor,
-            price_setting_bw: priceSettingBw,
-            price_setting_photo: priceSettingPhoto,
-          },
-          ...analysisResult,
-        });
-
+        
+        const result = await response.json();
+        
+        // Mark as fallback mode
+        result.analysis_mode = 'online_fallback';
+        
+        res.json(result);
+        
       } catch (error) {
         console.error('Calculate price error:', error);
         
@@ -486,7 +598,7 @@ function startProxyServer() {
           file_url: null,
           file_name: req.file ? req.file.originalname : 'unknown',
           file_type: req.file ? req.file.mimetype : 'unknown',
-          analysis_mode: 'local_desktop_fallback',
+          analysis_mode: 'online_fallback_error',
           service_available: false,
           pengaturan: {
             threshold_warna: '20',
@@ -507,7 +619,7 @@ function startProxyServer() {
         res.status(500).json(fallbackResult);
       }
     });
-
+    
     // Proxy all other requests (web pages) to the main server
     app.use('*', async (req, res) => {
       try {
@@ -560,13 +672,13 @@ function startProxyServer() {
         res.status(500).json({ error: 'Proxy server error', details: error.message });
       }
     });
-
+    
     // Start proxy server
     localServer = app.listen(CONFIG.LOCAL_PORT, '127.0.0.1', () => {
-      console.log(`Local proxy server running on port ${CONFIG.LOCAL_PORT}, forwarding to Python server on port ${pythonServicePort}`);
+      console.log(`Local proxy server running on port ${CONFIG.LOCAL_PORT}${pythonServicePort ? `, forwarding to Python server on port ${pythonServicePort}` : ', using online service only'}`);
       resolve();
     });
-
+    
     localServer.on('error', (error) => {
       console.error('Local proxy server error:', error);
       console.error('Error code:', error.code);
@@ -749,7 +861,7 @@ function startFallbackProxy() {
 // Get Python executable path
 function getPythonExecutablePath() {
   const isPackaged = app.isPackaged;
-  const basePath = isPackaged 
+  const basePath = isPackaged
     ? path.join(process.resourcesPath, 'python-service')
     : path.join(__dirname, '../python-service');
     
@@ -769,13 +881,22 @@ function getPythonExecutablePath() {
       }
     }
     
+    // Try with .exe extension always
+    const fullPath = path.join(basePath, 'pdf_analyzer.exe');
+    if (fs.existsSync(fullPath)) {
+      console.log(`Found Python executable: ${fullPath}`);
+      return fullPath;
+    }
+    
     // Fallback to default name
     exeName = 'pdf_analyzer.exe';
   } else {
     exeName = 'pdf_analyzer';
   }
   
-  return path.join(basePath, exeName);
+  const defaultPath = path.join(basePath, exeName);
+  console.log(`Using default Python executable path: ${defaultPath}`);
+  return defaultPath;
 }
 
 // Create application menu
@@ -1052,58 +1173,132 @@ function setupLocalFileHandlers() {
         throw new Error('File not found');
       }
       
-      // Read file and create form data for analysis
-      const fileBuffer = fs.readFileSync(filePath);
-      const form = new FormData();
-      form.append('file', fileBuffer, {
-        filename: fileName,
-        contentType: fileName.endsWith('.pdf') ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-      });
-      
-      // Use local Python service if available
-      const pythonPort = pythonServicePort;
-      const response = await fetch(`http://127.0.0.1:${pythonPort}/analyze-document?color_threshold=20&photo_threshold=30`, {
-        method: 'POST',
-        body: form,
-        headers: form.getHeaders()
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Analysis service error: ${response.status} ${response.statusText}`);
+      // Check if Python service is running
+      let pythonServiceAvailable = false;
+      if (pythonServicePort) {
+        try {
+          // Test if the Python service is accessible
+          const testResponse = await fetch(`http://127.0.0.1:${pythonServicePort}/`, {
+            method: 'GET',
+            timeout: 5000 // 5 second timeout
+          });
+          pythonServiceAvailable = testResponse.ok;
+        } catch (testError) {
+          console.log('Python service not accessible, will use online service:', testError.message);
+          pythonServiceAvailable = false;
+        }
       }
       
-      const analysisResult = await response.json();
-      
-      // Calculate prices with default settings
-      const priceSettingColor = 1000;
-      const priceSettingBw = 500;
-      const priceSettingPhoto = 2000;
-      
-      const priceColor = (analysisResult.color_pages || 0) * priceSettingColor;
-      const priceBw = (analysisResult.bw_pages || 0) * priceSettingBw;
-      const pricePhoto = (analysisResult.photo_pages || 0) * priceSettingPhoto;
-      const totalPrice = priceColor + priceBw + pricePhoto;
-      
-      const result = {
-        ...analysisResult,
-        price_color: priceColor,
-        price_bw: priceBw,
-        price_photo: pricePhoto,
-        total_price: totalPrice,
-        file_url: `file://${filePath}`,
-        file_name: fileName,
-        analysis_mode: 'local_desktop',
-        service_available: true,
-        pengaturan: {
-          threshold_warna: '20',
-          threshold_foto: '30',
-          price_setting_color: priceSettingColor,
-          price_setting_bw: priceSettingBw,
-          price_setting_photo: priceSettingPhoto,
+      // If Python service is available, use it for analysis
+      if (pythonServiceAvailable) {
+        // Read file and create form data for analysis
+        const fileBuffer = fs.readFileSync(filePath);
+        const form = new FormData();
+        form.append('file', fileBuffer, {
+          filename: fileName,
+          contentType: fileName.endsWith('.pdf') ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        });
+        
+        // Use local Python service if available
+        const pythonPort = pythonServicePort;
+        const response = await fetch(`http://127.0.0.1:${pythonPort}/analyze-document?color_threshold=20&photo_threshold=30`, {
+          method: 'POST',
+          body: form,
+          headers: form.getHeaders()
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Analysis service error: ${response.status} ${response.statusText}`);
         }
-      };
-      
-      return result;
+        
+        const analysisResult = await response.json();
+        
+        // Calculate prices with default settings
+        const priceSettingColor = 1000;
+        const priceSettingBw = 500;
+        const priceSettingPhoto = 2000;
+        
+        const priceColor = (analysisResult.color_pages || 0) * priceSettingColor;
+        const priceBw = (analysisResult.bw_pages || 0) * priceSettingBw;
+        const pricePhoto = (analysisResult.photo_pages || 0) * priceSettingPhoto;
+        const totalPrice = priceColor + priceBw + pricePhoto;
+        
+        const result = {
+          ...analysisResult,
+          price_color: priceColor,
+          price_bw: priceBw,
+          price_photo: pricePhoto,
+          total_price: totalPrice,
+          file_url: `file://${filePath}`,
+          file_name: fileName,
+          analysis_mode: 'local_desktop',
+          service_available: true,
+          pengaturan: {
+            threshold_warna: '20',
+            threshold_foto: '30',
+            price_setting_color: priceSettingColor,
+            price_setting_bw: priceSettingBw,
+            price_setting_photo: priceSettingPhoto,
+          }
+        };
+        
+        return result;
+      } else {
+        // Fallback to online service if Python service is not available
+        console.log('Python service not available, using online service for analysis');
+        
+        // Read file and create form data for analysis
+        const fileBuffer = fs.readFileSync(filePath);
+        const form = new FormData();
+        form.append('file', fileBuffer, {
+          filename: fileName,
+          contentType: fileName.endsWith('.pdf') ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        });
+        
+        // Use online service
+        const response = await fetch(`${CONFIG.SERVER_URL}/api/analyze-document?color_threshold=20&photo_threshold=30`, {
+          method: 'POST',
+          body: form,
+          headers: form.getHeaders()
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Online service error: ${response.status} ${response.statusText}`);
+        }
+        
+        const analysisResult = await response.json();
+        
+        // Calculate prices with default settings
+        const priceSettingColor = 1000;
+        const priceSettingBw = 500;
+        const priceSettingPhoto = 2000;
+        
+        const priceColor = (analysisResult.color_pages || 0) * priceSettingColor;
+        const priceBw = (analysisResult.bw_pages || 0) * priceSettingBw;
+        const pricePhoto = (analysisResult.photo_pages || 0) * priceSettingPhoto;
+        const totalPrice = priceColor + priceBw + pricePhoto;
+        
+        const result = {
+          ...analysisResult,
+          price_color: priceColor,
+          price_bw: priceBw,
+          price_photo: pricePhoto,
+          total_price: totalPrice,
+          file_url: `file://${filePath}`,
+          file_name: fileName,
+          analysis_mode: 'online_fallback',
+          service_available: false,
+          pengaturan: {
+            threshold_warna: '20',
+            threshold_foto: '30',
+            price_setting_color: priceSettingColor,
+            price_setting_bw: priceSettingBw,
+            price_setting_photo: priceSettingPhoto,
+          }
+        };
+        
+        return result;
+      }
     } catch (error) {
       console.error('Local file analysis error:', error);
       return {
@@ -1168,6 +1363,22 @@ function setupLocalFileHandlers() {
     } catch (error) {
       console.error('Error getting file info:', error);
       return { exists: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('read-file-content', async (event, filePath) => {
+    try {
+      // Check if file exists
+      if (!fs.existsSync(filePath)) {
+        throw new Error('File not found');
+      }
+      
+      // Read file content
+      const content = fs.readFileSync(filePath);
+      return { success: true, content: content.toString('base64') };
+    } catch (error) {
+      console.error('Error reading file content:', error);
+      return { success: false, error: error.message };
     }
   });
 

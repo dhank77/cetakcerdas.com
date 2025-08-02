@@ -385,20 +385,38 @@ async function startPythonService() {
           pythonEnv.OBJC_DISABLE_INITIALIZE_FORK_SAFETY = 'YES';
         }
         
+        // Add Windows-specific environment variables for UTF-8 encoding
+        if (process.platform === 'win32') {
+          pythonEnv.PYTHONIOENCODING = 'utf-8';
+          pythonEnv.PYTHONUTF8 = '1';
+          pythonEnv.PYTHONLEGACYWINDOWSSTDIO = '0';
+          pythonEnv.LANG = 'en_US.UTF-8';
+          pythonEnv.LC_ALL = 'en_US.UTF-8';
+        }
+        
         console.log('Spawning Python process with command:', pythonExePath, '--mode', 'server', '--host', '127.0.0.1', '--port', pythonServicePort.toString());
         console.log('Python process environment:', pythonEnv);
         
-        pythonProcess = spawn(pythonExePath, ['--mode', 'server', '--host', '127.0.0.1', '--port', pythonServicePort.toString()], {
+        // Configure spawn options with encoding for Windows
+        const spawnOptions = {
           stdio: ['ignore', 'pipe', 'pipe'],
           env: pythonEnv
-        });
+        };
+        
+        // Add Windows-specific encoding options
+        if (process.platform === 'win32') {
+          spawnOptions.encoding = 'utf8';
+          spawnOptions.windowsHide = true;
+        }
+        
+        pythonProcess = spawn(pythonExePath, ['--mode', 'server', '--host', '127.0.0.1', '--port', pythonServicePort.toString()], spawnOptions);
         
         console.log('Python process spawned with PID:', pythonProcess.pid);
         
         let serverReady = false;
         
         pythonProcess.stdout.on('data', (data) => {
-          const output = data.toString();
+          const output = data.toString('utf8');
           console.log('Python server:', output);
           if (output.includes('Uvicorn running on') || output.includes('Server started') || output.includes('Application startup complete')) {
             serverReady = true;
@@ -407,7 +425,7 @@ async function startPythonService() {
         });
         
         pythonProcess.stderr.on('data', (data) => {
-          const output = data.toString();
+          const output = data.toString('utf8');
           console.log('Python server info:', output);
           if (output.includes('Uvicorn running on') || output.includes('Server started') || output.includes('Application startup complete')) {
             serverReady = true;

@@ -52,8 +52,7 @@ contextBridge.exposeInMainWorld('localFileAPI', {
   savePrintSettings: (settings) => ipcRenderer.invoke('save-print-settings', settings),
   
   // File system operations
-  getFileInfo: (filePath) => ipcRenderer.invoke('get-file-info', filePath),
-  readFileContent: (filePath) => ipcRenderer.invoke('read-file-content', filePath)
+  getFileInfo: (filePath) => ipcRenderer.invoke('get-file-info', filePath)
 });
 
 // Expose a limited API for the renderer

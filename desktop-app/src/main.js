@@ -103,9 +103,7 @@ async function fetchWithRetry(url, options = {}, retries = MAX_RETRIES) {
         throw new Error('Network timeout - please check your internet connection');
       }
       
-      if (error.message === 'PROXY_AUTH_REQUIRED' || error.message.includes('proxy')) {
-        throw new Error('Network proxy authentication required. Please configure proxy settings or contact your network administrator.');
-      }
+      // Proxy error handling removed - application now works offline
       
       if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
         console.warn(`Server unreachable: ${error.code}`);

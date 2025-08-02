@@ -1413,115 +1413,63 @@ function setupLocalFileHandlers() {
       }
       
       // If Python service is available, use it for analysis
-      if (pythonServiceAvailable) {
-        // Read file and create form data for analysis
-        const fileBuffer = fs.readFileSync(filePath);
-        const form = new FormData();
-        form.append('file', fileBuffer, {
-          filename: fileName,
-          contentType: fileName.endsWith('.pdf') ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        });
-        
-        // Use local Python service if available
-        const pythonPort = pythonServicePort;
-        const response = await fetchWithRetry(`http://127.0.0.1:${pythonPort}/analyze-document?color_threshold=20&photo_threshold=30`, {
-          method: 'POST',
-          body: form,
-          headers: form.getHeaders()
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Analysis service error: ${response.status} ${response.statusText}`);
-        }
-        
-        const analysisResult = await response.json();
-        
-        // Calculate prices with default settings
-        const priceSettingColor = 1000;
-        const priceSettingBw = 500;
-        const priceSettingPhoto = 2000;
-        
-        const priceColor = (analysisResult.color_pages || 0) * priceSettingColor;
-        const priceBw = (analysisResult.bw_pages || 0) * priceSettingBw;
-        const pricePhoto = (analysisResult.photo_pages || 0) * priceSettingPhoto;
-        const totalPrice = priceColor + priceBw + pricePhoto;
-        
-        const result = {
-          ...analysisResult,
-          price_color: priceColor,
-          price_bw: priceBw,
-          price_photo: pricePhoto,
-          total_price: totalPrice,
-          file_url: `file://${filePath}`,
-          file_name: fileName,
-          analysis_mode: 'local_desktop',
-          service_available: true,
-          pengaturan: {
-            threshold_warna: '20',
-            threshold_foto: '30',
-            price_setting_color: priceSettingColor,
-            price_setting_bw: priceSettingBw,
-            price_setting_photo: priceSettingPhoto,
-          }
-        };
-        
-        return result;
-      } else {
-        // Fallback to online service if Python service is not available
-        console.log('Python service not available, using online service for analysis');
-        
-        // Read file and create form data for analysis
-        const fileBuffer = fs.readFileSync(filePath);
-        const form = new FormData();
-        form.append('file', fileBuffer, {
-          filename: fileName,
-          contentType: fileName.endsWith('.pdf') ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        });
-        
-        // Use online service
-        const response = await fetch(`${CONFIG.SERVER_URL}/api/analyze-document?color_threshold=20&photo_threshold=30`, {
-          method: 'POST',
-          body: form,
-          headers: form.getHeaders()
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Online service error: ${response.status} ${response.statusText}`);
-        }
-        
-        const analysisResult = await response.json();
-        
-        // Calculate prices with default settings
-        const priceSettingColor = 1000;
-        const priceSettingBw = 500;
-        const priceSettingPhoto = 2000;
-        
-        const priceColor = (analysisResult.color_pages || 0) * priceSettingColor;
-        const priceBw = (analysisResult.bw_pages || 0) * priceSettingBw;
-        const pricePhoto = (analysisResult.photo_pages || 0) * priceSettingPhoto;
-        const totalPrice = priceColor + priceBw + pricePhoto;
-        
-        const result = {
-          ...analysisResult,
-          price_color: priceColor,
-          price_bw: priceBw,
-          price_photo: pricePhoto,
-          total_price: totalPrice,
-          file_url: `file://${filePath}`,
-          file_name: fileName,
-          analysis_mode: 'online_fallback',
-          service_available: false,
-          pengaturan: {
-            threshold_warna: '20',
-            threshold_foto: '30',
-            price_setting_color: priceSettingColor,
-            price_setting_bw: priceSettingBw,
-            price_setting_photo: priceSettingPhoto,
-          }
-        };
-        
-        return result;
+      // Ensure Python service is ready before use
+      if (!pythonServiceAvailable) {
+        throw new Error('Python service is not ready. Please wait for the service to start.');
       }
+      
+      // Read file and create form data for analysis
+      const fileBuffer = fs.readFileSync(filePath);
+      const form = new FormData();
+      form.append('file', fileBuffer, {
+        filename: fileName,
+        contentType: fileName.endsWith('.pdf') ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      });
+      
+      // Use local Python service only
+      const pythonPort = pythonServicePort;
+      const response = await fetchWithRetry(`http://127.0.0.1:${pythonPort}/analyze-document?color_threshold=20&photo_threshold=30`, {
+        method: 'POST',
+        body: form,
+        headers: form.getHeaders()
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Analysis service error: ${response.status} ${response.statusText}`);
+      }
+      
+      const analysisResult = await response.json();
+      
+      // Calculate prices with default settings
+      const priceSettingColor = 1000;
+      const priceSettingBw = 500;
+      const priceSettingPhoto = 2000;
+      
+      const priceColor = (analysisResult.color_pages || 0) * priceSettingColor;
+      const priceBw = (analysisResult.bw_pages || 0) * priceSettingBw;
+      const pricePhoto = (analysisResult.photo_pages || 0) * priceSettingPhoto;
+      const totalPrice = priceColor + priceBw + pricePhoto;
+      
+      const result = {
+        ...analysisResult,
+        price_color: priceColor,
+        price_bw: priceBw,
+        price_photo: pricePhoto,
+        total_price: totalPrice,
+        file_url: `file://${filePath}`,
+        file_name: fileName,
+        analysis_mode: 'local_desktop',
+        service_available: true,
+        pengaturan: {
+          threshold_warna: '20',
+          threshold_foto: '30',
+          price_setting_color: priceSettingColor,
+          price_setting_bw: priceSettingBw,
+          price_setting_photo: priceSettingPhoto,
+        }
+      };
+      
+      return result;
     } catch (error) {
       console.error('Local file analysis error:', error);
       return {

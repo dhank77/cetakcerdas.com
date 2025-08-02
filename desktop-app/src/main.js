@@ -418,15 +418,22 @@ async function startPythonService() {
         // Python arguments for the service
         const pythonArgs = ['--mode', 'server', '--host', '127.0.0.1', '--port', pythonServicePort.toString()];
         
-        // Handle PowerShell script execution
+        // Handle different script types
         let executablePath = pythonExePath;
         let executableArgs = pythonArgs;
         
-        if (process.platform === 'win32' && pythonExePath.endsWith('.ps1')) {
-          // For PowerShell scripts, use powershell.exe with proper arguments
-          executablePath = 'powershell.exe';
-          executableArgs = ['-ExecutionPolicy', 'Bypass', '-File', pythonExePath, ...pythonArgs];
-          delete spawnOptions.shell; // Remove shell option when explicitly using powershell.exe
+        if (process.platform === 'win32') {
+          if (pythonExePath.endsWith('.py')) {
+            // For Python wrapper scripts, use system Python
+            executablePath = 'python';
+            executableArgs = [pythonExePath, ...pythonArgs];
+            delete spawnOptions.shell;
+          } else if (pythonExePath.endsWith('.ps1')) {
+            // For PowerShell scripts, use powershell.exe with proper arguments
+            executablePath = 'powershell.exe';
+            executableArgs = ['-ExecutionPolicy', 'Bypass', '-File', pythonExePath, ...pythonArgs];
+            delete spawnOptions.shell; // Remove shell option when explicitly using powershell.exe
+          }
         }
         
         pythonProcess = spawn(executablePath, executableArgs, spawnOptions);
@@ -898,7 +905,14 @@ function getPythonExecutablePath() {
   // Improved file detection for different platforms
   let exeName;
   if (platform === 'win32') {
-    // Try PowerShell script first for better UTF-8 handling
+    // Try Python wrapper script first (most robust for UTF-8)
+    const pythonWrapperPath = path.join(basePath, 'python_wrapper.py');
+    if (fs.existsSync(pythonWrapperPath)) {
+      console.log(`Found Python UTF-8 wrapper script: ${pythonWrapperPath}`);
+      return pythonWrapperPath;
+    }
+    
+    // Try PowerShell script as fallback
     const psWrapperPath = path.join(basePath, 'run_python_utf8.ps1');
     if (fs.existsSync(psWrapperPath)) {
       console.log(`Found Python UTF-8 PowerShell wrapper: ${psWrapperPath}`);

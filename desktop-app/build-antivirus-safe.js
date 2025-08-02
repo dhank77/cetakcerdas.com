@@ -1,6 +1,6 @@
-const { build } = require('electron-builder');
-const fs = require('fs');
-const path = require('path');
+import { build } from 'electron-builder';
+import fs from 'fs';
+import path from 'path';
 
 // Configuration untuk mengurangi false positive
 const antivirusSafeConfig = {
@@ -199,8 +199,8 @@ async function buildAntivirusSafe() {
 }
 
 // Run if called directly
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   buildAntivirusSafe();
 }
 
-module.exports = { buildAntivirusSafe, antivirusSafeConfig };
+export { buildAntivirusSafe, antivirusSafeConfig };

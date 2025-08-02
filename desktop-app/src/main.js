@@ -11,6 +11,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import Store from 'electron-store';
 import crypto from 'crypto';
+import net from 'net';
 
 // ES6 module equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -19,7 +20,7 @@ const __dirname = dirname(__filename);
 // Configuration
 const CONFIG = {
   SERVER_URL: process.env.SERVER_URL || 'https://cetakcerdas.com',
-  PYTHON_PORT: 9006, // Must match the hardcoded port in Python executable
+  PYTHON_PORT: 9006, // Base port for Python service
   LOCAL_PORT: 3001, // Port for local proxy server
   isDev: process.argv.includes('--dev')
 };
@@ -163,8 +164,38 @@ function updateLoadingStatus(message) {
   }
 }
 
+// Function to check if a port is available
+function isPortAvailable(port) {
+  return new Promise((resolve) => {
+    const tester = net.createServer();
+    
+    tester.listen(port, '127.0.0.1');
+    tester.once('error', () => {
+      resolve(false);
+    });
+    tester.once('listening', () => {
+      tester.close();
+      resolve(true);
+    });
+  });
+}
+
+// Function to find an available port starting from basePort
+async function findAvailablePort(basePort, maxAttempts = 10) {
+  for (let i = 0; i < maxAttempts; i++) {
+    const port = basePort + i;
+    if (await isPortAvailable(port)) {
+      return port;
+    }
+  }
+  throw new Error(`Could not find available port after ${maxAttempts} attempts`);
+}
+
+// Global variable to store the actual port being used
+let pythonServicePort = CONFIG.PYTHON_PORT;
+
 // Start Python service in server mode
-function startPythonService() {
+async function startPythonService() {
   return new Promise((resolve, reject) => {
     updateLoadingStatus('Initializing PDF analyzer...');
     
@@ -197,107 +228,116 @@ function startPythonService() {
     }
 
     console.log('Starting Python service in server mode:', pythonExePath);
-    updateLoadingStatus('Starting PDF analyzer service...');
+    updateLoadingStatus('Finding available port for PDF analyzer service...');
     
-    // Start Python server
-    const pythonPort = CONFIG.PYTHON_PORT + 1; // Use different port for Python server
-    
-    // Platform-specific environment variables
-    const pythonEnv = {
-      ...process.env,
-      PYTHONUNBUFFERED: '1',
-      PYTHONDONTWRITEBYTECODE: '1'
-    };
-    
-    // Add macOS-specific environment variable only on macOS
-    if (process.platform === 'darwin') {
-      pythonEnv.OBJC_DISABLE_INITIALIZE_FORK_SAFETY = 'YES';
-    }
-    
-    pythonProcess = spawn(pythonExePath, ['--mode', 'server', '--host', '127.0.0.1', '--port', pythonPort.toString()], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: pythonEnv
-    });
-
-    let serverReady = false;
-    
-    pythonProcess.stdout.on('data', (data) => {
-      const output = data.toString();
-      console.log('Python server:', output);
-      if (output.includes('Uvicorn running on') || output.includes('Server started') || output.includes('Application startup complete')) {
-        serverReady = true;
-        updateLoadingStatus('PDF analyzer ready!');
-      }
-    });
-
-    pythonProcess.stderr.on('data', (data) => {
-      const output = data.toString();
-      console.log('Python server info:', output);
-      if (output.includes('Uvicorn running on') || output.includes('Server started') || output.includes('Application startup complete')) {
-        serverReady = true;
-        updateLoadingStatus('PDF analyzer ready!');
-      }
-    });
-
-    pythonProcess.on('close', (code) => {
-      console.log(`Python server exited with code ${code}`);
-      pythonProcess = null;
-    });
-
-    pythonProcess.on('error', (error) => {
-      console.error('Failed to start Python server:', error);
-      console.error('Error code:', error.code);
-      console.error('Error errno:', error.errno);
-      console.error('Error syscall:', error.syscall);
-      console.error('Error path:', error.path);
-      
-      // Windows-specific error handling
-      if (process.platform === 'win32') {
-        if (error.code === 'ENOENT') {
-          console.error('Windows: Python executable not found or not in PATH');
-        } else if (error.code === 'EACCES') {
-          console.error('Windows: Permission denied - check antivirus or file permissions');
-        } else if (error.code === 'EPERM') {
-          console.error('Windows: Operation not permitted - check UAC or antivirus');
+    // Find an available port for the Python service
+    findAvailablePort(CONFIG.PYTHON_PORT)
+      .then((availablePort) => {
+        pythonServicePort = availablePort;
+        updateLoadingStatus(`Starting PDF analyzer service on port ${pythonServicePort}...`);
+        
+        // Platform-specific environment variables
+        const pythonEnv = {
+          ...process.env,
+          PYTHONUNBUFFERED: '1',
+          PYTHONDONTWRITEBYTECODE: '1'
+        };
+        
+        // Add macOS-specific environment variable only on macOS
+        if (process.platform === 'darwin') {
+          pythonEnv.OBJC_DISABLE_INITIALIZE_FORK_SAFETY = 'YES';
         }
-      }
-      
-      updateLoadingStatus('PDF analyzer failed, using online service...');
-      reject(error);
-      return;
-    });
+        
+        pythonProcess = spawn(pythonExePath, ['--mode', 'server', '--host', '127.0.0.1', '--port', pythonServicePort.toString()], {
+          stdio: ['ignore', 'pipe', 'pipe'],
+          env: pythonEnv
+        });
 
-    // Wait for server to be ready, then start proxy
-    const checkReady = setInterval(() => {
-      if (serverReady) {
-        clearInterval(checkReady);
-        updateLoadingStatus('Starting local services...');
-        startProxyServer(pythonPort).then(() => {
-          updateLoadingStatus('Services ready! Loading application...');
-          resolve();
-        }).catch(reject);
-      }
-    }, 50);
+        let serverReady = false;
+        
+        pythonProcess.stdout.on('data', (data) => {
+          const output = data.toString();
+          console.log('Python server:', output);
+          if (output.includes('Uvicorn running on') || output.includes('Server started') || output.includes('Application startup complete')) {
+            serverReady = true;
+            updateLoadingStatus('PDF analyzer ready!');
+          }
+        });
 
-    // Platform-specific timeout - Windows may need more time
-    const timeout = process.platform === 'win32' ? 30000 : 20000;
-    
-    setTimeout(() => {
-      if (!serverReady) {
-        clearInterval(checkReady);
-        // Even if we didn't detect ready state, try to start proxy anyway
-        console.log(`Timeout reached after ${timeout}ms, attempting to start proxy anyway...`);
-        updateLoadingStatus('Timeout reached, starting anyway...');
-        startProxyServer(pythonPort).then(() => {
-          resolve();
-        }).catch(reject);
-      }
-    }, timeout);
+        pythonProcess.stderr.on('data', (data) => {
+          const output = data.toString();
+          console.log('Python server info:', output);
+          if (output.includes('Uvicorn running on') || output.includes('Server started') || output.includes('Application startup complete')) {
+            serverReady = true;
+            updateLoadingStatus('PDF analyzer ready!');
+          }
+        });
+
+        pythonProcess.on('close', (code) => {
+          console.log(`Python server exited with code ${code}`);
+          pythonProcess = null;
+        });
+
+        pythonProcess.on('error', (error) => {
+          console.error('Failed to start Python server:', error);
+          console.error('Error code:', error.code);
+          console.error('Error errno:', error.errno);
+          console.error('Error syscall:', error.syscall);
+          console.error('Error path:', error.path);
+          
+          // Windows-specific error handling
+          if (process.platform === 'win32') {
+            if (error.code === 'ENOENT') {
+              console.error('Windows: Python executable not found or not in PATH');
+            } else if (error.code === 'EACCES') {
+              console.error('Windows: Permission denied - check antivirus or file permissions');
+            } else if (error.code === 'EPERM') {
+              console.error('Windows: Operation not permitted - check UAC or antivirus');
+            }
+          }
+          
+          updateLoadingStatus('PDF analyzer failed, using online service...');
+          reject(error);
+          return;
+        });
+
+        // Wait for server to be ready, then start proxy
+        const checkReady = setInterval(() => {
+          if (serverReady) {
+            clearInterval(checkReady);
+            updateLoadingStatus('Starting local services...');
+            startProxyServer().then(() => {
+              updateLoadingStatus('Services ready! Loading application...');
+              resolve();
+            }).catch(reject);
+          }
+        }, 50);
+
+        // Platform-specific timeout - Windows may need more time
+        const timeout = process.platform === 'win32' ? 30000 : 20000;
+        
+        setTimeout(() => {
+          if (!serverReady) {
+            clearInterval(checkReady);
+            // Even if we didn't detect ready state, try to start proxy anyway
+            console.log(`Timeout reached after ${timeout}ms, attempting to start proxy anyway...`);
+            updateLoadingStatus('Timeout reached, starting anyway...');
+            startProxyServer().then(() => {
+              resolve();
+            }).catch(reject);
+          }
+        }, timeout);
+      })
+      .catch((error) => {
+        console.error('Failed to find available port:', error);
+        updateLoadingStatus('Failed to find available port, using online service...');
+        reject(error);
+      });
   });
 }
 
 // Start proxy server that forwards requests to Python server
-function startProxyServer(pythonPort) {
+function startProxyServer() {
   return new Promise((resolve, reject) => {
     const app = express();
     app.use(cors());
@@ -325,7 +365,7 @@ function startProxyServer(pythonPort) {
           contentType: req.file.mimetype
         });
 
-        const response = await fetch(`http://127.0.0.1:${pythonPort}/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`, {
+        const response = await fetch(`http://127.0.0.1:${pythonServicePort}/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`, {
           method: 'POST',
           body: form,
           headers: form.getHeaders()
@@ -395,7 +435,7 @@ function startProxyServer(pythonPort) {
           contentType: req.file.mimetype
         });
 
-        const response = await fetch(`http://127.0.0.1:${pythonPort}/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`, {
+        const response = await fetch(`http://127.0.0.1:${pythonServicePort}/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`, {
           method: 'POST',
           body: form,
           headers: form.getHeaders()
@@ -523,7 +563,7 @@ function startProxyServer(pythonPort) {
 
     // Start proxy server
     localServer = app.listen(CONFIG.LOCAL_PORT, '127.0.0.1', () => {
-      console.log(`Local proxy server running on port ${CONFIG.LOCAL_PORT}, forwarding to Python server on port ${pythonPort}`);
+      console.log(`Local proxy server running on port ${CONFIG.LOCAL_PORT}, forwarding to Python server on port ${pythonServicePort}`);
       resolve();
     });
 
@@ -1021,7 +1061,7 @@ function setupLocalFileHandlers() {
       });
       
       // Use local Python service if available
-      const pythonPort = CONFIG.PYTHON_PORT + 1;
+      const pythonPort = pythonServicePort;
       const response = await fetch(`http://127.0.0.1:${pythonPort}/analyze-document?color_threshold=20&photo_threshold=30`, {
         method: 'POST',
         body: form,

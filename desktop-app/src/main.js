@@ -390,6 +390,7 @@ async function startPythonService() {
           pythonEnv.PYTHONIOENCODING = 'utf-8';
           pythonEnv.PYTHONUTF8 = '1';
           pythonEnv.PYTHONLEGACYWINDOWSSTDIO = '0';
+          pythonEnv.PYTHONHASHSEED = '0';
           pythonEnv.LANG = 'en_US.UTF-8';
           pythonEnv.LC_ALL = 'en_US.UTF-8';
         }
@@ -409,7 +410,15 @@ async function startPythonService() {
           spawnOptions.windowsHide = true;
         }
         
-        pythonProcess = spawn(pythonExePath, ['--mode', 'server', '--host', '127.0.0.1', '--port', pythonServicePort.toString()], spawnOptions);
+        // Add Python arguments for UTF-8 encoding on Windows
+        const pythonArgs = ['--mode', 'server', '--host', '127.0.0.1', '--port', pythonServicePort.toString()];
+        
+        if (process.platform === 'win32') {
+          // Add Python flags for UTF-8 encoding
+          pythonArgs.unshift('-X', 'utf8');
+        }
+        
+        pythonProcess = spawn(pythonExePath, pythonArgs, spawnOptions);
         
         console.log('Python process spawned with PID:', pythonProcess.pid);
         
@@ -878,7 +887,14 @@ function getPythonExecutablePath() {
   // Improved file detection for different platforms
   let exeName;
   if (platform === 'win32') {
-    // Try multiple possible names for Windows
+    // Use UTF-8 wrapper batch file for Windows to handle encoding issues
+    const wrapperPath = path.join(basePath, 'run_python_utf8.bat');
+    if (fs.existsSync(wrapperPath)) {
+      console.log(`Found Python UTF-8 wrapper: ${wrapperPath}`);
+      return wrapperPath;
+    }
+    
+    // Fallback to direct executable if wrapper not found
     const possibleNames = ['pdf_analyzer.exe', 'pdf_analyzer'];
     
     for (const name of possibleNames) {
@@ -887,13 +903,6 @@ function getPythonExecutablePath() {
         console.log(`Found Python executable: ${fullPath}`);
         return fullPath;
       }
-    }
-    
-    // Try with .exe extension always
-    const fullPath = path.join(basePath, 'pdf_analyzer.exe');
-    if (fs.existsSync(fullPath)) {
-      console.log(`Found Python executable: ${fullPath}`);
-      return fullPath;
     }
     
     // Fallback to default name

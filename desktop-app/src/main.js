@@ -289,12 +289,12 @@ function createWindow() {
     }
   );
   
-  // Intercept requests to handle local PDF analysis with price calculation
+  // Intercept requests to handle local PDF analysis with price calculation (offline mode)
   mainWindow.webContents.session.webRequest.onBeforeRequest(
     { urls: ['*://cetakcerdas.com/calculate-price', '*://www.cetakcerdas.com/calculate-price'] },
     (details, callback) => {
-      // Redirect to local proxy server that handles price calculation
-      console.log('Intercepting calculate-price request for local analysis with price calculation');
+      // Always redirect to local server for offline price calculation
+      console.log('Redirecting calculate-price to local offline service');
       callback({ redirectURL: `http://127.0.0.1:${CONFIG.LOCAL_PORT}/calculate-price` });
     }
   );

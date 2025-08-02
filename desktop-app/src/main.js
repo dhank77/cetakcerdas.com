@@ -907,10 +907,10 @@ async function performNetworkDiagnostics() {
   return diagnostics;
 }
 
-// Start fallback proxy that forwards all requests to online service
-function startFallbackProxy() {
+// Start local server for calculate-price only (no network dependency)
+function startLocalServer() {
   return new Promise((resolve, reject) => {
-    updateLoadingStatus('Setting up online service connection...');
+    updateLoadingStatus('Setting up local services...');
     
     const app = express();
     app.use(cors());
@@ -918,46 +918,7 @@ function startFallbackProxy() {
 
     // Health check endpoint
     app.get('/', (req, res) => {
-      res.json({ status: 'online', mode: 'fallback_proxy' });
-    });
-
-    // PDF analysis endpoint - forward to online service
-    app.post('/analyze-document', multer().single('file'), async (req, res) => {
-      try {
-        if (!req.file) {
-          return res.status(400).json({ error: 'No file uploaded' });
-        }
-
-        const colorThreshold = parseFloat(req.query.color_threshold) || 10.0;
-        const photoThreshold = parseFloat(req.query.photo_threshold) || 30.0;
-
-        // Forward request to online FastAPI service
-        const form = new FormData();
-        form.append('file', req.file.buffer, {
-          filename: req.file.originalname,
-          contentType: req.file.mimetype
-        });
-
-        const response = await fetchWithRetry(`${CONFIG.SERVER_URL}/api/analyze-document?color_threshold=${colorThreshold}&photo_threshold=${photoThreshold}`, {
-          method: 'POST',
-          body: form,
-          headers: form.getHeaders()
-        });
-
-        if (!response.ok) {
-          if (response.status === 419) {
-            throw new Error(`Network proxy authentication required. Please check your internet connection or contact your network administrator.`);
-          }
-          throw new Error(`Online service error: ${response.status} ${response.statusText}`);
-        }
-
-        const result = await response.json();
-        res.json(result);
-
-      } catch (error) {
-        console.error('PDF analysis fallback error:', error);
-        res.status(500).json({ error: error.message });
-      }
+      res.json({ status: 'local_only', mode: 'offline' });
     });
 
     // Calculate price endpoint - local calculation without network
@@ -1039,26 +1000,15 @@ function startFallbackProxy() {
       }
     });
 
-    // Start fallback proxy server
+    // Start local server
     localServer = app.listen(CONFIG.LOCAL_PORT, '127.0.0.1', () => {
       console.log(`Local server running on port ${CONFIG.LOCAL_PORT}, calculate-price available locally without network`);
       updateLoadingStatus('Local services ready! Loading application...');
-      
-      // Perform network diagnostics after server starts
-      performNetworkDiagnostics().then(diagnostics => {
-        if (!diagnostics.server_reachable) {
-          console.warn('Server connectivity issues detected:', diagnostics.recommendations);
-          updateLoadingStatus('Network issues detected - using fallback mode');
-        }
-      }).catch(error => {
-        console.error('Network diagnostics failed:', error);
-      });
-      
       resolve();
     });
 
     localServer.on('error', (error) => {
-      console.error('Fallback proxy server error:', error);
+      console.error('Local server error:', error);
       console.error('Error code:', error.code);
       console.error('Error port:', error.port);
       console.error('Error address:', error.address);
@@ -1659,8 +1609,8 @@ app.whenReady().then(async () => {
         console.error('Failed to start local Python service:', error);
         console.log('Continuing with server fallback only - all PDF analysis will use online service');
         
-        // Start a simple proxy that always forwards to online service
-        await startFallbackProxy();
+        // Start local server for calculate-price only (no network dependency)
+        await startLocalServer();
       }
     } else {
       // In dev mode, just mark services as ready

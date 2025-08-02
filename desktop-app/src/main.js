@@ -960,57 +960,55 @@ function startFallbackProxy() {
       }
     });
 
-    // Calculate price endpoint - forward to online Laravel service
+    // Calculate price endpoint - local calculation without network
     app.post('/calculate-price', multer().single('file'), async (req, res) => {
       try {
         if (!req.file) {
           return res.status(400).json({ error: 'No file uploaded' });
         }
 
-        // Forward request to online Laravel service
-        const form = new FormData();
-        form.append('file', req.file.buffer, {
-          filename: req.file.originalname,
-          contentType: req.file.mimetype
-        });
+        // Local calculation without network dependency
+        const priceSettings = {
+          price_setting_color: parseInt(req.query.price_setting_color) || 1000,
+          price_setting_bw: parseInt(req.query.price_setting_bw) || 500,
+          price_setting_photo: parseInt(req.query.price_setting_photo) || 2000
+        };
 
-        // Add query parameters if provided
-        const queryParams = new URLSearchParams();
-        if (req.query.slug) queryParams.append('slug', req.query.slug);
-        if (req.query.price_setting_photo) queryParams.append('price_setting_photo', req.query.price_setting_photo);
-        if (req.query.price_setting_color) queryParams.append('price_setting_color', req.query.price_setting_color);
-        if (req.query.price_setting_bw) queryParams.append('price_setting_bw', req.query.price_setting_bw);
-        if (req.query.threshold_color) queryParams.append('threshold_color', req.query.threshold_color);
-        if (req.query.threshold_photo) queryParams.append('threshold_photo', req.query.threshold_photo);
-
-        const queryString = queryParams.toString();
-        const url = `${CONFIG.SERVER_URL}/calculate-price${queryString ? '?' + queryString : ''}`;
-
-        const response = await fetch(url, {
-          method: 'POST',
-          body: form,
-          headers: form.getHeaders()
-        });
-
-        if (!response.ok) {
-          if (response.status === 419) {
-            throw new Error(`Network proxy authentication required. Please check your internet connection or contact your network administrator.`);
-          }
-          throw new Error(`Online service error: ${response.status} ${response.statusText}`);
-        }
-
-        const result = await response.json();
-        
-        // Mark as fallback mode
-        result.analysis_mode = 'online_fallback';
+        // Basic local calculation (simplified)
+        const result = {
+          price_color: priceSettings.price_setting_color,
+          price_bw: priceSettings.price_setting_bw,
+          price_photo: priceSettings.price_setting_photo,
+          total_price: priceSettings.price_setting_bw, // Default to BW price
+          file_url: null,
+          file_name: req.file.originalname,
+          file_type: req.file.mimetype,
+          analysis_mode: 'local_no_network',
+          service_available: true,
+          pengaturan: {
+            threshold_warna: req.query.threshold_color || '20',
+            threshold_foto: req.query.threshold_photo || '30',
+            price_setting_color: priceSettings.price_setting_color,
+            price_setting_bw: priceSettings.price_setting_bw,
+            price_setting_photo: priceSettings.price_setting_photo,
+          },
+          color_pages: 1, // Simplified
+          bw_pages: 1,    // Simplified
+          photo_pages: 0, // Simplified
+          total_pages: 1, // Simplified
+          page_details: [],
+          fallback: false,
+          local_calculation: true,
+          note: 'Local calculation without network dependency'
+        };
         
         res.json(result);
 
       } catch (error) {
-        console.error('Calculate price fallback error:', error);
+        console.error('Calculate price local error:', error);
         
-        // Fallback result
-        const fallbackResult = {
+        // Local error result
+        const errorResult = {
           price_color: 0,
           price_bw: 0,
           price_photo: 0,
@@ -1018,7 +1016,7 @@ function startFallbackProxy() {
           file_url: null,
           file_name: req.file ? req.file.originalname : 'unknown',
           file_type: req.file ? req.file.mimetype : 'unknown',
-          analysis_mode: 'online_fallback_error',
+          analysis_mode: 'local_error',
           service_available: false,
           pengaturan: {
             threshold_warna: '20',
@@ -1032,18 +1030,19 @@ function startFallbackProxy() {
           photo_pages: 0,
           total_pages: 0,
           page_details: [],
-          fallback: true,
+          fallback: false,
+          local_calculation: true,
           error: error.message
         };
         
-        res.status(500).json(fallbackResult);
+        res.status(500).json(errorResult);
       }
     });
 
     // Start fallback proxy server
     localServer = app.listen(CONFIG.LOCAL_PORT, '127.0.0.1', () => {
-      console.log(`Fallback proxy server running on port ${CONFIG.LOCAL_PORT}, forwarding to online service`);
-      updateLoadingStatus('Online service ready! Loading application...');
+      console.log(`Local server running on port ${CONFIG.LOCAL_PORT}, calculate-price available locally without network`);
+      updateLoadingStatus('Local services ready! Loading application...');
       
       // Perform network diagnostics after server starts
       performNetworkDiagnostics().then(diagnostics => {

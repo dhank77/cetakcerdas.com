@@ -63,10 +63,7 @@ async function fetchWithRetry(url, options = {}, retries = MAX_RETRIES) {
       clearTimeout(timeoutId);
       
       // Handle specific status codes with better error messages
-      if (response.status === 419) {
-        console.warn('Proxy authentication required, attempting alternative strategies');
-        throw new Error('PROXY_AUTH_REQUIRED');
-      }
+      // Status 419 handling removed - application works offline only
       
       if (response.status === 403) {
         console.warn('Access forbidden, checking server availability');
@@ -138,39 +135,16 @@ async function fetchWithRetry(url, options = {}, retries = MAX_RETRIES) {
  * @param {string} serverUrl - Server URL to check
  * @returns {Promise<boolean>} Whether server is available
  */
+// Server health check disabled for offline mode
 async function checkServerHealth(serverUrl) {
-  try {
-    const response = await fetchWithRetry(`${serverUrl}/api/health`, { method: 'GET' }, 1);
-    return response.ok;
-  } catch (error) {
-    console.warn('Server health check failed:', error.message);
-    return false;
-  }
+  console.log('Server health check disabled - application works offline only');
+  return false;
 }
 
-/**
- * Alternative connection strategies for network issues
- * @param {string} originalUrl - Original URL
- * @param {Object} options - Request options
- * @returns {Promise<Response>} Response from alternative connection
- */
+// Alternative connection strategies disabled for offline mode
 async function connectWithAlternatives(originalUrl, options = {}) {
-  const alternatives = [
-    originalUrl,
-    originalUrl.replace('https://', 'http://'), // Fallback to HTTP
-  ];
-  
-  for (const url of alternatives) {
-    try {
-      console.log(`Trying alternative connection: ${url}`);
-      const response = await fetchWithRetry(url, options, 2);
-      if (response.ok) return response;
-    } catch (error) {
-      console.warn(`Alternative connection failed for ${url}:`, error.message);
-    }
-  }
-  
-  throw new Error('All connection attempts failed. Please check your internet connection.');
+  console.log('Alternative connections disabled - application works offline only');
+  throw new Error('Network connections disabled for offline mode');
 }
 
 let mainWindow;
@@ -575,7 +549,8 @@ function startProxyServer() {
             return;
           } catch (pythonError) {
             console.error('Python service error, falling back to online service:', pythonError);
-            // Continue to online service fallback
+            // No fallback to online service - application works offline only
+            throw new Error('Python service not available and no online fallback configured for offline mode');
           }
         }
         
@@ -662,44 +637,8 @@ function startProxyServer() {
           }
         }
         
-        // Fallback to online Laravel service
-        const form = new FormData();
-        form.append('file', req.file.buffer, {
-          filename: req.file.originalname,
-          contentType: req.file.mimetype
-        });
-        
-        // Add query parameters if provided
-        const queryParams = new URLSearchParams();
-        if (req.query.slug) queryParams.append('slug', req.query.slug);
-        if (req.query.price_setting_photo) queryParams.append('price_setting_photo', req.query.price_setting_photo);
-        if (req.query.price_setting_color) queryParams.append('price_setting_color', req.query.price_setting_color);
-        if (req.query.price_setting_bw) queryParams.append('price_setting_bw', req.query.price_setting_bw);
-        if (req.query.threshold_color) queryParams.append('threshold_color', req.query.threshold_color);
-        if (req.query.threshold_photo) queryParams.append('threshold_photo', req.query.threshold_photo);
-        
-        const queryString = queryParams.toString();
-        const url = `${CONFIG.SERVER_URL}/calculate-price${queryString ? '?' + queryString : ''}`;
-        
-        const response = await fetchWithRetry(url, {
-          method: 'POST',
-          body: form,
-          headers: form.getHeaders()
-        });
-        
-        if (!response.ok) {
-          if (response.status === 419) {
-            throw new Error(`Network proxy authentication required. Please check your internet connection or contact your network administrator.`);
-          }
-          throw new Error(`Online service error: ${response.status} ${response.statusText}`);
-        }
-        
-        const result = await response.json();
-        
-        // Mark as fallback mode
-        result.analysis_mode = 'online_fallback';
-        
-        res.json(result);
+        // No fallback to online service - application works offline only
+        throw new Error('Python service not available and no online fallback configured for offline mode');
         
       } catch (error) {
         console.error('Calculate price error:', error);
@@ -735,65 +674,13 @@ function startProxyServer() {
       }
     });
     
-    // Proxy all other requests (web pages) to the main server
-    app.use('*', async (req, res) => {
-      try {
-        const targetUrl = `${CONFIG.SERVER_URL}${req.originalUrl}`;
-        console.log(`Proxying web request: ${req.originalUrl} -> ${targetUrl}`);
-        
-        const response = await fetchWithRetry(targetUrl, {
-          method: req.method,
-          headers: {
-            ...req.headers,
-            'host': undefined, // Remove host header to avoid conflicts
-            'x-forwarded-for': req.ip,
-            'x-forwarded-proto': 'http',
-            'x-desktop-app': 'true', // Mark as desktop app request
-            'user-agent': req.headers['user-agent'] || 'CetakCerdas-Desktop-App'
-          },
-          body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined
-        });
-        
-        // Copy response headers
-        response.headers.forEach((value, key) => {
-          if (key.toLowerCase() !== 'content-encoding') {
-            res.setHeader(key, value);
-          }
-        });
-        
-        res.status(response.status);
-        
-        // Get response text and inject desktop app detection script
-        const responseText = await response.text();
-        
-        // If it's an HTML response, inject desktop app detection
-        if (response.headers.get('content-type')?.includes('text/html')) {
-          const injectedHtml = responseText.replace(
-            '</head>',
-            `<script>
-              // Desktop app detection for preload script
-              window.isDesktopApp = true;
-              console.log('Desktop app detection injected');
-            </script>
-            </head>`
-          );
-          res.send(injectedHtml);
-        } else {
-          res.send(responseText);
-        }
-        
-      } catch (error) {
-        console.error('Proxy error:', error);
-        if (error.message.includes('419') || error.message.includes('proxy')) {
-          res.status(503).json({ 
-            error: 'Network proxy authentication required', 
-            details: 'Your network requires proxy authentication. Please check your internet connection or contact your network administrator.',
-            code: 'PROXY_AUTH_REQUIRED'
-          });
-        } else {
-          res.status(500).json({ error: 'Proxy server error', details: error.message });
-        }
-      }
+    // No web request proxy - application works offline only
+    app.use('*', (req, res) => {
+      res.status(503).json({ 
+        error: 'Web proxy disabled', 
+        details: 'Application is configured for offline mode only. Web requests are not supported.',
+        code: 'OFFLINE_MODE'
+      });
     });
     
     // Start proxy server
@@ -1538,10 +1425,8 @@ app.whenReady().then(async () => {
         console.log('Python service ready, application loaded from cetakcerdas.com');
       } catch (error) {
         console.error('Failed to start local Python service:', error);
-        console.log('Continuing with server fallback only - all PDF analysis will use online service');
-        
-        // Start local server for calculate-price only (no network dependency)
-        await startLocalServer();
+        // No fallback to online service - application works offline only
+        throw new Error('Python service not available and no online fallback configured for offline mode');
       }
     } else {
       // In dev mode, just mark services as ready

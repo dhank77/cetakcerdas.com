@@ -62,13 +62,15 @@ class SettingController extends Controller
         if (!$user || !$user->setting) {
             return response()->json([
                 'success' => false,
-                'message' => 'User settings not found'
+                'message' => 'User settings not found',
+                'setting' => null
             ], 404);
         }
         
         return response()->json([
             'success' => true,
-            'data' => [
+            'message' => 'User settings found',
+            'setting' => [
                 'color_price' => $user->setting->color_price,
                 'bw_price' => $user->setting->bw_price,
                 'photo_price' => $user->setting->photo_price ?? $user->setting->color_price,

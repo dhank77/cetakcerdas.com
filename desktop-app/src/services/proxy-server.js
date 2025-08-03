@@ -84,9 +84,36 @@ export function startProxyServer() {
         let colorThreshold = 20;
         let photoThreshold = 30;
         
-        // Application works offline - using default settings only
-        // No network fetch for user settings in offline mode
-        console.log('Using default settings for offline mode');
+        // Get slug from request body or query parameters
+        const slug = req.body.slug || req.query.slug;
+        
+        // Try to fetch user settings if slug is provided and online
+        if (slug) {
+          try {
+            const settingsResponse = await fetchWithRetry(`${CONFIG.SERVER_URL}/api/user-settings/${slug}`, {
+              method: 'GET',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+              },
+              timeout: 5000 // 5 second timeout
+            });
+            
+            if (settingsResponse.ok) {
+              const settingsData = await settingsResponse.json();
+              if (settingsData.setting) {
+                priceSettingColor = settingsData.setting.color_price || priceSettingColor;
+                priceSettingPhoto = settingsData.setting.photo_price > 0 ? settingsData.setting.photo_price : priceSettingColor;
+                priceSettingBw = settingsData.setting.bw_price || priceSettingBw;
+                console.log(`Using custom settings for user: ${slug}`);
+              }
+            }
+          } catch (settingsError) {
+            console.warn('Failed to fetch user settings, using defaults:', settingsError.message);
+          }
+        }
+        
+        console.log(`Price settings - Color: ${priceSettingColor}, BW: ${priceSettingBw}, Photo: ${priceSettingPhoto}`);
         
         // Check if Python service is available
         if (pythonServicePort) {

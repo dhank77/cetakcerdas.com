@@ -129,15 +129,23 @@ export async function startPythonService() {
         }
         
         if (process.platform === 'win32') {
+          // Force UTF-8 encoding for Windows
           pythonEnv.PYTHONIOENCODING = 'utf-8:replace';
           pythonEnv.PYTHONUTF8 = '1';
           pythonEnv.PYTHONLEGACYWINDOWSSTDIO = '0';
+          pythonEnv.PYTHONLEGACYWINDOWSFSENCODING = '0';
           pythonEnv.LC_ALL = 'C.UTF-8';
           pythonEnv.LANG = 'C.UTF-8';
           pythonEnv.PYTHONCOERCECLOCALE = '0';
           pythonEnv.PYTHONMALLOC = 'malloc';
           pythonEnv.PYTHONFAULTHANDLER = '1';
           pythonEnv.PYTHONDEFAULTENCODING = 'utf-8';
+          // Additional Windows encoding fixes
+          pythonEnv.PYTHONHASHSEED = '0';
+          pythonEnv.PYTHONOPTIMIZE = '0';
+          pythonEnv.PYTHONPATH = '';
+          // Force console code page to UTF-8
+          pythonEnv.CHCP = '65001';
         }
         
         // Spawn options
@@ -152,7 +160,14 @@ export async function startPythonService() {
         let executablePath = pythonExePath;
         let executableArgs = pythonArgs;
         
-        console.log(`Starting Python executable directly: ${executablePath}`);
+        // Use cmd.exe wrapper on Windows to set UTF-8 code page
+        if (process.platform === 'win32') {
+          console.log(`Starting Python executable with UTF-8 wrapper: ${executablePath}`);
+          executablePath = 'cmd.exe';
+          executableArgs = ['/c', 'chcp', '65001', '>', 'nul', '&&', pythonExePath, ...pythonArgs];
+        } else {
+          console.log(`Starting Python executable directly: ${executablePath}`);
+        }
         
         pythonProcess = spawn(executablePath, executableArgs, spawnOptions);
         

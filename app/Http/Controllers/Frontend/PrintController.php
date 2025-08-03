@@ -147,9 +147,14 @@ class PrintController extends Controller
 
     public function protectedValidated(Request $request) : Response|RedirectResponse 
     {
+        // Enhanced desktop app detection with multiple fallback methods
         $isDesktopApp = str_contains($request->userAgent(), 'Electron') || 
                        $request->hasHeader('X-Desktop-App') ||
-                       $request->ip() === '127.0.0.1';
+                       $request->hasHeader('X-Electron-App') ||
+                       $request->ip() === '127.0.0.1' ||
+                       $request->ip() === '::1' ||
+                       str_contains($request->userAgent(), 'CetakCerdas') ||
+                       $request->hasHeader('X-Local-App');
         
         $protectedUserId = session('protected_user');
         

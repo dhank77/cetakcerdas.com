@@ -13,10 +13,16 @@ class DesktopAppService
      */
     public function isDesktopApp(): bool
     {
-        $userAgent = request()->header('User-Agent', '');
-        return str_contains($userAgent, 'Electron') || 
-               str_contains($userAgent, 'PrintManagementSystem') ||
-               request()->header('X-Desktop-App') === 'true';
+        $request = request();
+        
+        // Enhanced desktop app detection with multiple fallback methods
+        return str_contains($request->userAgent(), 'Electron') || 
+               $request->hasHeader('X-Desktop-App') ||
+               $request->hasHeader('X-Electron-App') ||
+               $request->ip() === '127.0.0.1' ||
+               $request->ip() === '::1' ||
+               str_contains($request->userAgent(), 'CetakCerdas') ||
+               $request->hasHeader('X-Local-App');
     }
 
     /**

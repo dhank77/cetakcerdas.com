@@ -142,7 +142,6 @@ class PrintController extends Controller
 
     public function protectedValidated(Request $request) : Response|RedirectResponse 
     {
-        // Check if request is from desktop app (Electron)
         $isDesktopApp = str_contains($request->userAgent(), 'Electron') || 
                        $request->hasHeader('X-Desktop-App') ||
                        $request->ip() === '127.0.0.1';
@@ -154,7 +153,7 @@ class PrintController extends Controller
             session(['protected_user' => $protectedUserId]);
         }
         
-        if (!$protectedUserId) {
+        if (!$protectedUserId && $isDesktopApp) {
             return redirect()->route('print.protected');
         }
         
@@ -164,7 +163,6 @@ class PrintController extends Controller
 
         $user = User::find($protectedUserId);
         if (!$user) {
-            // If user not found, redirect to auth page
             return redirect()->route('print.protected');
         }
         

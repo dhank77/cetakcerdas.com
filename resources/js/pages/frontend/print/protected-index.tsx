@@ -315,6 +315,7 @@ const ProtectedIndex = ({ user, priceSettingColor, priceSettingPhoto, priceSetti
                             priceSettingBw={priceSettingBw}
                             fileName={file?.name}
                             previewUrl={previewUrl}
+                            isDesktopApp={isDesktopApp}
                         />
                     </div>
 

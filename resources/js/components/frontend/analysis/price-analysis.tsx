@@ -12,7 +12,8 @@ interface PriceAnalysisProps {
     priceSettingPhoto: number;
     priceSettingBw: number;
     fileName?: string;
-    previewUrl?: string | null; // Tambahkan prop ini
+    previewUrl?: string | null;
+    isDesktopApp?: boolean;
 }
 
 const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
@@ -22,6 +23,7 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
     priceSettingBw,
     fileName = 'Dokumen',
     previewUrl,
+    isDesktopApp = false,
 }) => {
     const [isCartVisible, setIsCartVisible] = useState(false);
     const [isItemAdded, setIsItemAdded] = useState(false);
@@ -71,14 +73,17 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
         window.dispatchEvent(new CustomEvent('cartUpdated'));
 
         // Enhanced desktop app detection and local file handling
-        const isDesktopApp = (window as any).desktopAPI?.isDesktop || (window as any).isDesktopApp || false;
+        const detectedDesktopApp = (window as any).desktopAPI?.isDesktop || (window as any).isDesktopApp || false;
+        const finalIsDesktopApp = isDesktopApp || detectedDesktopApp;
         const electronAPI = (window as any).electronAPI;
         const localFileAPI = (window as any).localFileAPI;
         
         console.log('🔍 Enhanced Print Debug Info:');
         console.log('- desktopAPI.isDesktop:', (window as any).desktopAPI?.isDesktop);
         console.log('- window.isDesktopApp:', (window as any).isDesktopApp);
-        console.log('- isDesktopApp (final):', isDesktopApp);
+        console.log('- isDesktopApp prop:', isDesktopApp);
+        console.log('- detectedDesktopApp:', detectedDesktopApp);
+        console.log('- finalIsDesktopApp:', finalIsDesktopApp);
         console.log('- previewUrl:', previewUrl);
         console.log('- analysisResult.file_url:', analysisResult.file_url);
         console.log('- electronAPI available:', !!electronAPI?.printDocument);
@@ -88,7 +93,7 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
         console.log('- file extension:', fileName.toLowerCase().split('.').pop());
         
         // Save analysis result to local cache if desktop app
-        if (isDesktopApp && localFileAPI && analysisResult) {
+        if (finalIsDesktopApp && localFileAPI && analysisResult) {
             try {
                 await localFileAPI.saveAnalysisResult({
                     id: cartItem.id,
@@ -110,7 +115,7 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
         const isDocxFile = fileExtension === 'docx';
         
         // For desktop app with local analysis, handle DOCX files differently
-        if (isDesktopApp && analysisResult.analysis_mode === 'local_desktop' && isDocxFile) {
+        if (finalIsDesktopApp && analysisResult.analysis_mode === 'local_desktop' && isDocxFile) {
             console.log('📄 Local DOCX file detected in desktop app');
             
             // For local DOCX files, try to convert to PDF or use system default
@@ -148,7 +153,7 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
         } else if (previewUrl && previewUrl !== 'docx-pending' && previewUrl !== 'docx-info') {
             console.log('✅ Using previewUrl for printing:', previewUrl);
             
-            if (isDesktopApp && localFileAPI && analysisResult.analysis_mode === 'local_desktop') {
+            if (finalIsDesktopApp && localFileAPI && analysisResult.analysis_mode === 'local_desktop') {
                 // Use enhanced local file printing for local analysis
                 console.log('🖨️ Using enhanced local file printing...');
                 try {
@@ -170,7 +175,7 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
                         await electronAPI.printDocument(previewUrl);
                     }
                 }
-            } else if (isDesktopApp && electronAPI?.printDocument) {
+            } else if (finalIsDesktopApp && electronAPI?.printDocument) {
                 // Use standard desktop app print functionality
                 console.log('🖨️ Using standard desktop app print function...');
                 try {
@@ -195,7 +200,7 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
         } else if (analysisResult.file_url) {
             console.log('📄 Using fallback file_url for printing:', analysisResult.file_url);
             
-            if (isDesktopApp && localFileAPI && analysisResult.file_url.startsWith('file://')) {
+            if (finalIsDesktopApp && localFileAPI && analysisResult.file_url.startsWith('file://')) {
                 // Handle local file URLs with enhanced printing
                 console.log('🖨️ Using enhanced printing for local file URL...');
                 try {
@@ -216,7 +221,7 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
                         await electronAPI.printDocument(analysisResult.file_url);
                     }
                 }
-            } else if (isDesktopApp && electronAPI?.printDocument) {
+            } else if (finalIsDesktopApp && electronAPI?.printDocument) {
                 // Use desktop app print functionality for fallback URL
                 console.log('🖨️ Using standard desktop print with fallback URL...');
                 try {
@@ -260,9 +265,9 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
     const handleCartFinish = () => {
         setIsCartVisible(false);
         setIsItemAdded(false);
-        setTimeout(() => {
-            window.location.reload();
-        }, 2000);
+        // setTimeout(() => {
+        //     window.location.reload();
+        // }, 2000);
     };
 
     return (

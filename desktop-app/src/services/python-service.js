@@ -158,8 +158,15 @@ export async function startPythonService() {
         }
         
         if (process.platform === 'win32') {
-          pythonEnv.PYTHONIOENCODING = 'utf-8';
+          pythonEnv.PYTHONIOENCODING = 'utf-8:replace';
           pythonEnv.PYTHONUTF8 = '1';
+          pythonEnv.PYTHONLEGACYWINDOWSSTDIO = '0';
+          pythonEnv.LC_ALL = 'C.UTF-8';
+          pythonEnv.LANG = 'C.UTF-8';
+          pythonEnv.PYTHONCOERCECLOCALE = '0';
+          pythonEnv.PYTHONMALLOC = 'malloc';
+          pythonEnv.PYTHONFAULTHANDLER = '1';
+          pythonEnv.PYTHONDEFAULTENCODING = 'utf-8';
         }
         
         // Spawn options

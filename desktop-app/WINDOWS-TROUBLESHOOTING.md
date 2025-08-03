@@ -34,17 +34,36 @@ If you prefer to use Python directly:
 - Garbled text in console output
 - UnicodeDecodeError or UnicodeEncodeError
 - Application crashes with encoding-related errors
+- Error: `'charmap' codec can't encode character '\U0001f680'`
+- CP1252 encoding errors on Windows
 
-**Solutions:**
-The app includes UTF-8 wrapper scripts that automatically handle encoding:
+**Root Cause:**
+Windows defaults to CP1252 encoding which cannot handle Unicode characters like emojis. The Python executable may not inherit UTF-8 environment properly.
 
-- `run_python_utf8.bat` - Batch file wrapper
-- `run_python_utf8.ps1` - PowerShell wrapper
+**Solutions Applied:**
 
-These scripts:
-- Set UTF-8 code page (`chcp 65001`)
-- Configure Python UTF-8 environment variables
-- Handle encoding errors gracefully
+1. **Enhanced UTF-8 Wrapper Scripts:**
+   - `run_python_utf8.bat` - Batch file wrapper
+   - `run_python_utf8.ps1` - PowerShell wrapper
+
+2. **Comprehensive Environment Variables:**
+   ```batch
+   chcp 65001
+   set PYTHONIOENCODING=utf-8:replace
+   set PYTHONUTF8=1
+   set PYTHONLEGACYWINDOWSSTDIO=0
+   set LC_ALL=C.UTF-8
+   set LANG=C.UTF-8
+   set PYTHONCOERCECLOCALE=0
+   set PYTHONMALLOC=malloc
+   set PYTHONFAULTHANDLER=1
+   set PYTHONDEFAULTENCODING=utf-8
+   ```
+
+3. **Node.js Environment Setup:**
+   - Automatic UTF-8 environment injection for Windows
+   - Graceful encoding error handling with `:replace` suffix
+   - Forced UTF-8 locale settings
 
 ### 3. Path Resolution Issues (NEW)
 
@@ -199,6 +218,52 @@ Look for these specific error messages in the console:
 2. Run the application and check console logs
 3. Try uploading a PDF for price calculation
 4. Monitor the detailed error messages if issues persist
+
+## Advanced Troubleshooting
+
+### Encoding Error Debugging
+
+If you encounter `UnicodeEncodeError` or `'charmap' codec` errors:
+
+1. **Check Console Output:**
+   Look for error messages like:
+   ```
+   UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f680'
+   File "encodings\cp1252.py", line 19, in encode
+   ```
+
+2. **Verify Environment Variables:**
+   ```cmd
+   echo %PYTHONIOENCODING%
+   echo %PYTHONUTF8%
+   echo %LC_ALL%
+   ```
+   Should output:
+   ```
+   utf-8:replace
+   1
+   C.UTF-8
+   ```
+
+3. **Test UTF-8 Support:**
+   ```cmd
+   cd python-service
+   run_python_utf8.bat --version
+   ```
+
+4. **Manual Encoding Test:**
+   ```cmd
+   chcp 65001
+   python -c "print('🚀 UTF-8 test')"
+   ```
+
+### Enable Debug Mode
+
+1. Open Command Prompt in the application directory
+2. Run with debug flags:
+   ```cmd
+   npm start -- --enable-logging --log-level=0
+   ```
 
 ## Additional Recommendations
 

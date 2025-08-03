@@ -138,6 +138,7 @@ export async function startPythonService(retryCount = 0) {
       .then((availablePort) => {
         pythonServicePort = availablePort;
         console.log('Found available port for Python service:', availablePort);
+        console.log('pythonServicePort updated to:', pythonServicePort);
         updateLoadingStatus(`Starting PDF analyzer service on port ${pythonServicePort}...`);
         
         // Environment variables
@@ -209,6 +210,7 @@ export async function startPythonService(retryCount = 0) {
                 output.includes('Started server process') ||
                 output.includes('Starting PDF Analyzer Server')) {
               console.log('Python service detected as ready from stdout');
+              console.log('pythonServicePort at ready time:', pythonServicePort);
               serverReady = true;
               updateLoadingStatus('PDF analyzer ready!');
             }
@@ -247,6 +249,7 @@ export async function startPythonService(retryCount = 0) {
                 output.includes('Started server process') ||
                 output.includes('Starting PDF Analyzer Server')) {
               console.log('Python service detected as ready from stderr');
+              console.log('pythonServicePort at ready time:', pythonServicePort);
               serverReady = true;
               updateLoadingStatus('PDF analyzer ready!');
             }
@@ -366,6 +369,7 @@ export async function startPythonService(retryCount = 0) {
             const isHealthy = await performHealthCheck();
             if (isHealthy) {
               console.log('Python service is ready and healthy, starting proxy server...');
+              console.log('pythonServicePort before starting proxy server:', pythonServicePort);
               clearInterval(checkReady);
               updateLoadingStatus('Starting local services...');
               startProxyServer().then((proxyPort) => {
@@ -382,6 +386,7 @@ export async function startPythonService(retryCount = 0) {
               console.log(`Health check failed, attempt ${healthCheckAttempts}/${maxHealthCheckAttempts}`);
               if (healthCheckAttempts >= maxHealthCheckAttempts) {
                 console.log('Health check failed multiple times, but proceeding anyway...');
+                console.log('pythonServicePort before starting proxy server (fallback):', pythonServicePort);
                 clearInterval(checkReady);
                 updateLoadingStatus('Starting local services...');
                 startProxyServer().then((proxyPort) => {

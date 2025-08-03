@@ -118,8 +118,10 @@ export function startProxyServer() {
         console.log(`Price settings - Color: ${priceSettingColor}, BW: ${priceSettingBw}, Photo: ${priceSettingPhoto}`);
         
         // Check if Python service is available
+        console.log('Current pythonServicePort value:', pythonServicePort);
         if (pythonServicePort) {
           try {
+            console.log(`Attempting to connect to Python service at http://127.0.0.1:${pythonServicePort}/analyze-document`);
             // Forward request to Python server for analysis
             const form = new FormData();
             form.append('file', req.file.buffer, {

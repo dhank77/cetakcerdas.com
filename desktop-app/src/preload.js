@@ -46,6 +46,9 @@ contextBridge.exposeInMainWorld('localFileAPI', {
   getAnalysisHistory: () => ipcRenderer.invoke('get-analysis-history'),
   clearAnalysisCache: () => ipcRenderer.invoke('clear-analysis-cache'),
   
+  // Order processing
+  processOrder: (orderData) => ipcRenderer.invoke('process-order', orderData),
+  
   // Enhanced print operations
   printLocalFileEnhanced: (options) => ipcRenderer.invoke('print-local-file-enhanced', options),
   getPrintSettings: () => ipcRenderer.invoke('get-print-settings'),

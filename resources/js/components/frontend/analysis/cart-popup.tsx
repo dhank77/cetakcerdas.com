@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { router } from '@inertiajs/react';
@@ -62,18 +63,28 @@ const CartPopup: React.FC<CartPopupProps> = ({ isVisible, onClose, onFinish }) =
         };
     }, [isVisible]);
 
-    const handleFinish = useCallback(() => {
+    const handleFinish = useCallback(async () => {
         const currentCart = localStorage.getItem('printCart');
         const currentCartItems = currentCart ? JSON.parse(currentCart) : [];
         
-        router.post(
-            route('print.order'),
-            {
-                items: JSON.stringify(currentCartItems),
-                url: window.location.href,
-            },
-            {
-                onSuccess: () => {
+        // Check if running in desktop app
+        const isDesktopApp = (window as any).desktopAPI?.isDesktop || (window as any).isDesktopApp || false;
+        const localFileAPI = (window as any).localFileAPI;
+        
+        if (isDesktopApp && localFileAPI?.processOrder) {
+            // Use desktop app order processing
+            console.log('📦 Processing order in desktop app...');
+            try {
+                const totalAmount = currentCartItems.reduce((total: number, item: any) => total + item.totalPrice, 0);
+                
+                const result = await localFileAPI.processOrder({
+                    items: currentCartItems,
+                    totalAmount: totalAmount,
+                    url: window.location.href
+                });
+                
+                if (result.success) {
+                    console.log('✅ Desktop order processed successfully:', result);
                     localStorage.removeItem('printCart');
                     setCartItems([]);
                     if (timerRef.current) {
@@ -81,9 +92,36 @@ const CartPopup: React.FC<CartPopupProps> = ({ isVisible, onClose, onFinish }) =
                         timerRef.current = null;
                     }
                     onFinish();
+                } else {
+                    console.error('❌ Desktop order processing failed:', result.message);
+                    alert('Gagal memproses pesanan: ' + result.message);
+                }
+            } catch (error) {
+                console.error('❌ Desktop order processing error:', error);
+                alert('Terjadi kesalahan saat memproses pesanan');
+            }
+        } else {
+            // Use web app order processing (Inertia.js)
+            console.log('🌐 Processing order via web app...');
+            router.post(
+                route('print.order'),
+                {
+                    items: JSON.stringify(currentCartItems),
+                    url: window.location.href,
                 },
-            },
-        );
+                {
+                    onSuccess: () => {
+                        localStorage.removeItem('printCart');
+                        setCartItems([]);
+                        if (timerRef.current) {
+                            clearTimeout(timerRef.current);
+                            timerRef.current = null;
+                        }
+                        onFinish();
+                    },
+                },
+            );
+        }
     }, [onFinish]);
 
     // Auto close after 1 minute

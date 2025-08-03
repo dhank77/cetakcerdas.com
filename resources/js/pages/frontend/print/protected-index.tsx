@@ -48,11 +48,23 @@ const ProtectedIndex = ({ user, priceSettingColor, priceSettingPhoto, priceSetti
     useEffect(() => {
         const checkDesktopApp = () => {
             const desktopAPI = (window as any).desktopAPI;
+            const electronAPI = (window as any).electronAPI;
+            const localFileAPI = (window as any).localFileAPI;
             const isDesktop = desktopAPI?.isDesktop || (window as any).isDesktopApp || false;
+            
+            console.log('🔍 Desktop App Detection Debug:');
+            console.log('- window.desktopAPI:', desktopAPI);
+            console.log('- window.desktopAPI?.isDesktop:', desktopAPI?.isDesktop);
+            console.log('- window.isDesktopApp:', (window as any).isDesktopApp);
+            console.log('- window.electronAPI:', electronAPI);
+            console.log('- window.localFileAPI:', localFileAPI);
+            console.log('- Final isDesktop value:', isDesktop);
+            
             setIsDesktopApp(isDesktop);
         };
         
-        checkDesktopApp();
+        // Add a small delay to ensure preload script has loaded
+        setTimeout(checkDesktopApp, 100);
         
         // Check URL parameters for file browser mode
         const urlParams = new URLSearchParams(window.location.search);

@@ -16,17 +16,16 @@ $env:PYTHONCOERCECLOCALE = "0"
 # Change to script directory
 Set-Location $PSScriptRoot
 
-# Try to find Python and run wrapper
+# Run the compiled executable directly
 try {
-    if (Get-Command python3 -ErrorAction SilentlyContinue) {
-        & python3 python_wrapper.py @args
-    } elseif (Get-Command python -ErrorAction SilentlyContinue) {
-        & python python_wrapper.py @args
+    $exePath = Join-Path $PSScriptRoot "pdf_analyzer.exe"
+    if (Test-Path $exePath) {
+        & $exePath @args
     } else {
-        Write-Error "Python not found in PATH"
+        Write-Error "pdf_analyzer.exe not found in $PSScriptRoot"
         exit 1
     }
 } catch {
-    Write-Error "Error running Python service: $_"
+    Write-Error "Error running PDF analyzer: $_"
     exit 1
 }

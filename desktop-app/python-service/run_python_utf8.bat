@@ -15,16 +15,10 @@ set PYTHONCOERCECLOCALE=0
 REM Change to script directory
 cd /d "%~dp0"
 
-REM Try Python 3 first, then fallback to python
-where python3 >nul 2>&1
-if %errorlevel% equ 0 (
-    python3 python_wrapper.py %*
+REM Run the compiled executable directly
+if exist "%~dp0pdf_analyzer.exe" (
+    "%~dp0pdf_analyzer.exe" %*
 ) else (
-    where python >nul 2>&1
-    if %errorlevel% equ 0 (
-        python python_wrapper.py %*
-    ) else (
-        echo Error: Python not found in PATH
-        exit /b 1
-    )
+    echo Error: pdf_analyzer.exe not found in %~dp0
+    exit /b 1
 )

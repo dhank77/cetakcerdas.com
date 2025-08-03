@@ -1,10 +1,12 @@
 import { BrowserWindow, shell } from 'electron';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { CONFIG } from '../config.js';
 import { createMenu } from './menu.js';
 
 // ES6 module equivalent of __dirname
-const __dirname = path.dirname(new URL(import.meta.url).pathname);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Global window references
 export let mainWindow;

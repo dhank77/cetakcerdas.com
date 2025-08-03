@@ -2,13 +2,15 @@ import { spawn } from 'child_process';
 import { app } from 'electron';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { CONFIG } from '../config.js';
 import { findAvailablePort } from '../utils/port.js';
 import { updateLoadingStatus } from '../windows/window-manager.js';
 import { startProxyServer } from './proxy-server.js';
 
 // ES6 module equivalent of __dirname
-const __dirname = path.dirname(new URL(import.meta.url).pathname);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Global variables
 export let pythonProcess;

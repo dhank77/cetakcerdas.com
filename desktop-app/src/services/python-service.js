@@ -187,8 +187,14 @@ export async function startPythonService() {
         
         pythonProcess.stdout.on('data', (data) => {
           const output = data.toString('utf8');
-          console.log('Python server:', output);
-          if (output.includes('Uvicorn running on') || output.includes('Server started') || output.includes('Application startup complete')) {
+          console.log('Python server stdout:', JSON.stringify(output));
+          // More flexible detection for server readiness
+          if (output.includes('Uvicorn running on') || 
+              output.includes('Server started') || 
+              output.includes('Application startup complete') ||
+              output.includes('Started server process') ||
+              output.includes('🚀 Starting PDF Analyzer Server')) {
+            console.log('Python service detected as ready from stdout');
             serverReady = true;
             updateLoadingStatus('PDF analyzer ready!');
           }
@@ -196,8 +202,14 @@ export async function startPythonService() {
         
         pythonProcess.stderr.on('data', (data) => {
           const output = data.toString('utf8');
-          console.log('Python server info:', output);
-          if (output.includes('Uvicorn running on') || output.includes('Server started') || output.includes('Application startup complete')) {
+          console.log('Python server stderr:', JSON.stringify(output));
+          // More flexible detection for server readiness
+          if (output.includes('Uvicorn running on') || 
+              output.includes('Server started') || 
+              output.includes('Application startup complete') ||
+              output.includes('Started server process') ||
+              output.includes('🚀 Starting PDF Analyzer Server')) {
+            console.log('Python service detected as ready from stderr');
             serverReady = true;
             updateLoadingStatus('PDF analyzer ready!');
           }
@@ -247,6 +259,7 @@ export async function startPythonService() {
         // Wait for server to be ready
         const checkReady = setInterval(() => {
           if (serverReady) {
+            console.log('Python service is ready, starting proxy server...');
             clearInterval(checkReady);
             updateLoadingStatus('Starting local services...');
             startProxyServer().then(() => {

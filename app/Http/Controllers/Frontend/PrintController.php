@@ -84,15 +84,16 @@ class PrintController extends Controller
             }
 
             return redirect()->back()->with([
-                'type' => 'error',
-                'messages' => 'Terjadi kesalahan',
+                'type' => 'success',
+                'messages' => 'Pesanan selesai',
             ]);
         }
 
         return redirect()->back()->with([
-            'type' => 'success',
-            'messages' => 'Pesanan selesai',
+            'type' => 'error',
+            'messages' => 'Terjadi kesalahan',
         ]);
+
     }
 
     public function protected(Request $request): Response|RedirectResponse
@@ -151,17 +152,6 @@ class PrintController extends Controller
         if (!$protectedUserId && $request->cookie('protected_user_backup')) {
             $protectedUserId = $request->cookie('protected_user_backup');
             session(['protected_user' => $protectedUserId]);
-        }
-        
-        // For desktop app, allow access without session validation
-        // Use default user or first available user for desktop app
-        if (!$protectedUserId && $isDesktopApp) {
-            // Get the first user with PIN for desktop app access
-            $defaultUser = User::whereNotNull('pin')->first();
-            if ($defaultUser) {
-                $protectedUserId = $defaultUser->id;
-                session(['protected_user' => $protectedUserId]);
-            }
         }
         
         if (!$protectedUserId) {

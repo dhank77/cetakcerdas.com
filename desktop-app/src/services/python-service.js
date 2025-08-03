@@ -21,6 +21,27 @@ function normalizePath(pathStr) {
 export let pythonProcess;
 export let pythonServicePort = null;
 
+// Cleanup function to reset state before retry
+function cleanupPythonService() {
+  if (pythonProcess && !pythonProcess.killed) {
+    console.log('Cleaning up previous Python process...');
+    try {
+      pythonProcess.kill('SIGTERM');
+      // Give it a moment to terminate gracefully
+      setTimeout(() => {
+        if (pythonProcess && !pythonProcess.killed) {
+          console.log('Force killing Python process...');
+          pythonProcess.kill('SIGKILL');
+        }
+      }, 2000);
+    } catch (error) {
+      console.warn('Error during Python process cleanup:', error.message);
+    }
+  }
+  pythonProcess = null;
+  pythonServicePort = null;
+}
+
 // Get Python executable path
 export function getPythonExecutablePath() {
   const isPackaged = app.isPackaged;
@@ -53,11 +74,13 @@ export function getPythonExecutablePath() {
   return defaultPath;
 }
 
-// Start Python service in server mode
-export async function startPythonService() {
+// Start Python service in server mode with retry mechanism
+export async function startPythonService(retryCount = 0) {
+  const maxRetries = 2;
+  
   return new Promise((resolve, reject) => {
-    console.log('=== Starting Python Service ===');
-    updateLoadingStatus('Initializing PDF analyzer...');
+    console.log(`=== Starting Python Service (Attempt ${retryCount + 1}/${maxRetries + 1}) ===`);
+    updateLoadingStatus(`Initializing PDF analyzer... (Attempt ${retryCount + 1})`);
     
     const pythonExePath = getPythonExecutablePath();
     console.log('Python executable path:', pythonExePath);
@@ -189,6 +212,11 @@ export async function startPythonService() {
               serverReady = true;
               updateLoadingStatus('PDF analyzer ready!');
             }
+            
+            // Log important startup information
+            if (output.includes('Starting server') || output.includes('Binding to')) {
+              console.log('Python service startup progress:', output.trim());
+            }
           } catch (encodingError) {
             console.warn('Encoding error in stdout:', encodingError.message);
             // Try with different encoding
@@ -247,6 +275,32 @@ export async function startPythonService() {
             } else if (code === 1) {
               console.error('Error 1: General error, check Python service logs above');
             }
+            
+            let errorMessage = `Python service exited with code ${code}`;
+            if (code === 1) {
+              errorMessage = 'Python service startup failed - check Python environment';
+            } else if (code === 2) {
+              errorMessage = 'Python service configuration error';
+            } else if (code === 126) {
+              errorMessage = 'Python service permission denied';
+            } else if (code === 127) {
+              errorMessage = 'Python service command not found';
+            }
+            
+            pythonServicePort = null;
+            
+            // Retry if we haven't exceeded max retries and it's not a critical error
+             if (retryCount < maxRetries && code !== 126 && code !== 127) {
+               console.log(`Retrying Python service startup after exit... (${retryCount + 1}/${maxRetries})`);
+               updateLoadingStatus(`PDF analyzer crashed, retrying... (${retryCount + 1})`);
+               cleanupPythonService();
+               setTimeout(() => {
+                 startPythonService(retryCount + 1).then(resolve).catch(reject);
+               }, 5000); // Wait 5 seconds before retry for exit errors
+            } else {
+              updateLoadingStatus('PDF analyzer failed to start, using online service...');
+              reject(new Error(errorMessage));
+            }
           }
           
           pythonProcess = null;
@@ -272,45 +326,137 @@ export async function startPythonService() {
             errorMessage = `Encoding error in Python service: ${error.message}`;
           }
           
-          updateLoadingStatus(`PDF analyzer failed: ${errorMessage}`);
           pythonServicePort = null;
-          reject(new Error(errorMessage));
+          
+          // Retry if we haven't exceeded max retries and it's not a permanent error
+          if (retryCount < maxRetries && error.code !== 'ENOENT' && error.code !== 'EACCES') {
+            console.log(`Retrying Python service startup after spawn error... (${retryCount + 1}/${maxRetries})`);
+            updateLoadingStatus(`PDF analyzer failed, retrying... (${retryCount + 1})`);
+            cleanupPythonService();
+            setTimeout(() => {
+              startPythonService(retryCount + 1).then(resolve).catch(reject);
+            }, 3000); // Wait 3 seconds before retry for spawn errors
+          } else {
+            updateLoadingStatus(`PDF analyzer failed: ${errorMessage}`);
+            reject(new Error(errorMessage));
+          }
         });
         
-        // Wait for server to be ready
-        const checkReady = setInterval(() => {
-          if (serverReady) {
-            console.log('Python service is ready, starting proxy server...');
-            clearInterval(checkReady);
-            updateLoadingStatus('Starting local services...');
-            startProxyServer().then(() => {
-              updateLoadingStatus('Services ready! Loading application...');
-              resolve();
-            }).catch((error) => {
-              pythonServicePort = null;
-              reject(error);
+        // Enhanced health check with HTTP request
+        const performHealthCheck = async () => {
+          try {
+            const response = await fetch(`http://127.0.0.1:${pythonServicePort}/health`, {
+              method: 'GET',
+              timeout: 2000
             });
+            return response.ok;
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          } catch (error) {
+            return false;
           }
-        }, 100);
+        };
         
+        // Wait for server to be ready with enhanced checking
+        let healthCheckAttempts = 0;
+        const maxHealthCheckAttempts = 3;
+        
+        const checkReady = setInterval(async () => {
+          if (serverReady) {
+            // Double-check with HTTP health check
+            const isHealthy = await performHealthCheck();
+            if (isHealthy) {
+              console.log('Python service is ready and healthy, starting proxy server...');
+              clearInterval(checkReady);
+              updateLoadingStatus('Starting local services...');
+              startProxyServer().then(() => {
+                updateLoadingStatus('Services ready! Loading application...');
+                resolve();
+              }).catch((error) => {
+                pythonServicePort = null;
+                reject(error);
+              });
+            } else {
+              healthCheckAttempts++;
+              console.log(`Health check failed, attempt ${healthCheckAttempts}/${maxHealthCheckAttempts}`);
+              if (healthCheckAttempts >= maxHealthCheckAttempts) {
+                console.log('Health check failed multiple times, but proceeding anyway...');
+                clearInterval(checkReady);
+                updateLoadingStatus('Starting local services...');
+                startProxyServer().then(() => {
+                  updateLoadingStatus('Services ready! Loading application...');
+                  resolve();
+                }).catch((error) => {
+                  pythonServicePort = null;
+                  reject(error);
+                });
+              }
+            }
+          }
+        }, 500);
+        
+        // Increased timeout to 45 seconds for better reliability
         setTimeout(() => {
           if (!serverReady) {
             clearInterval(checkReady);
-            console.error('Python service timeout after 20 seconds');
+            console.error('Python service timeout after 45 seconds');
             console.error('Server ready status:', serverReady);
             console.error('Python process status:', pythonProcess ? 'running' : 'not running');
             console.error('Python process PID:', pythonProcess ? pythonProcess.pid : 'N/A');
             
-            // Kill the process if it's still running
-            if (pythonProcess && !pythonProcess.killed) {
-              console.log('Killing unresponsive Python process...');
-              pythonProcess.kill('SIGTERM');
-            }
-            
-            pythonServicePort = null;
-            reject(new Error('Python service startup timeout - service did not respond within 20 seconds'));
+            // Try one final health check before giving up
+            performHealthCheck().then((isHealthy) => {
+              if (isHealthy) {
+                console.log('Final health check succeeded, proceeding...');
+                updateLoadingStatus('Starting local services...');
+                startProxyServer().then(() => {
+                  updateLoadingStatus('Services ready! Loading application...');
+                  resolve();
+                }).catch((error) => {
+                  pythonServicePort = null;
+                  reject(error);
+                });
+              } else {
+                 // Kill the process if it's still running
+                 if (pythonProcess && !pythonProcess.killed) {
+                   console.log('Killing unresponsive Python process...');
+                   pythonProcess.kill('SIGTERM');
+                 }
+                 
+                 pythonServicePort = null;
+                 
+                 // Retry if we haven't exceeded max retries
+                 if (retryCount < maxRetries) {
+                   console.log(`Retrying Python service startup... (${retryCount + 1}/${maxRetries})`);
+                   cleanupPythonService();
+                   setTimeout(() => {
+                     startPythonService(retryCount + 1).then(resolve).catch(reject);
+                   }, 2000); // Wait 2 seconds before retry
+                 } else {
+                   reject(new Error('Python service startup timeout - service did not respond within 45 seconds after multiple attempts'));
+                 }
+               }
+             }).catch(() => {
+               // Kill the process if it's still running
+               if (pythonProcess && !pythonProcess.killed) {
+                 console.log('Killing unresponsive Python process...');
+                 pythonProcess.kill('SIGTERM');
+               }
+               
+               pythonServicePort = null;
+               
+               // Retry if we haven't exceeded max retries
+                if (retryCount < maxRetries) {
+                  console.log(`Retrying Python service startup after error... (${retryCount + 1}/${maxRetries})`);
+                  cleanupPythonService();
+                  setTimeout(() => {
+                    startPythonService(retryCount + 1).then(resolve).catch(reject);
+                  }, 2000); // Wait 2 seconds before retry
+               } else {
+                 reject(new Error('Python service startup timeout - service did not respond within 45 seconds after multiple attempts'));
+               }
+             });
           }
-        }, 20000);
+        }, 45000);
       })
       .catch((error) => {
         console.error('Failed to find available port:', error);

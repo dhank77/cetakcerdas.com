@@ -1,29 +1,32 @@
-# PowerShell script to run Python with UTF-8 encoding
-# Set console encoding to UTF-8
+# Set UTF-8 encoding for PowerShell
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 [Console]::InputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 
-# Set Windows console to UTF-8 mode
-chcp 65001 | Out-Null
-
-# Set environment variables for UTF-8 encoding
+# Set comprehensive UTF-8 environment variables
 $env:PYTHONIOENCODING = "utf-8:replace"
 $env:PYTHONUTF8 = "1"
 $env:PYTHONLEGACYWINDOWSSTDIO = "0"
-$env:PYTHONHASHSEED = "0"
-$env:LANG = "en_US.UTF-8"
 $env:LC_ALL = "en_US.UTF-8"
+$env:LANG = "en_US.UTF-8"
 $env:PYTHONUNBUFFERED = "1"
 $env:PYTHONDONTWRITEBYTECODE = "1"
-$env:PYTHONMALLOC = "malloc"
 $env:PYTHONCOERCECLOCALE = "0"
 
-# Get script directory
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-
 # Change to script directory
-Set-Location $scriptDir
+Set-Location $PSScriptRoot
 
-# Run the Python executable with all arguments
-$exePath = Join-Path $scriptDir "pdf_analyzer.exe"
-& $exePath $args
+# Try to find Python and run wrapper
+try {
+    if (Get-Command python3 -ErrorAction SilentlyContinue) {
+        & python3 python_wrapper.py @args
+    } elseif (Get-Command python -ErrorAction SilentlyContinue) {
+        & python python_wrapper.py @args
+    } else {
+        Write-Error "Python not found in PATH"
+        exit 1
+    }
+} catch {
+    Write-Error "Error running Python service: $_"
+    exit 1
+}

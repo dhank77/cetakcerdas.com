@@ -169,13 +169,23 @@ export async function startPythonService() {
         let executablePath = pythonExePath;
         let executableArgs = pythonArgs;
         
+        // Use wrapper scripts for better encoding handling
         if (process.platform === 'win32') {
-          if (pythonExePath.endsWith('.py')) {
+          const serviceDir = path.dirname(pythonExePath);
+          const wrapperBat = path.join(serviceDir, 'run_python_utf8.bat');
+          const wrapperPs1 = path.join(serviceDir, 'run_python_utf8.ps1');
+          
+          if (fs.existsSync(wrapperBat)) {
+            console.log('Using Windows batch wrapper for UTF-8 encoding');
+            executablePath = wrapperBat;
+            executableArgs = pythonArgs;
+          } else if (fs.existsSync(wrapperPs1)) {
+            console.log('Using PowerShell wrapper for UTF-8 encoding');
+            executablePath = 'powershell.exe';
+            executableArgs = ['-ExecutionPolicy', 'Bypass', '-File', wrapperPs1, ...pythonArgs];
+          } else if (pythonExePath.endsWith('.py')) {
             executablePath = 'python';
             executableArgs = [pythonExePath, ...pythonArgs];
-          } else if (pythonExePath.endsWith('.ps1')) {
-            executablePath = 'powershell.exe';
-            executableArgs = ['-ExecutionPolicy', 'Bypass', '-File', pythonExePath, ...pythonArgs];
           }
         }
         
@@ -186,32 +196,61 @@ export async function startPythonService() {
         let serverReady = false;
         
         pythonProcess.stdout.on('data', (data) => {
-          const output = data.toString('utf8');
-          console.log('Python server stdout:', JSON.stringify(output));
-          // More flexible detection for server readiness
-          if (output.includes('Uvicorn running on') || 
-              output.includes('Server started') || 
-              output.includes('Application startup complete') ||
-              output.includes('Started server process') ||
-              output.includes('Starting PDF Analyzer Server')) {
-            console.log('Python service detected as ready from stdout');
-            serverReady = true;
-            updateLoadingStatus('PDF analyzer ready!');
+          try {
+            const output = data.toString('utf8');
+            console.log('Python server stdout:', JSON.stringify(output));
+            // More flexible detection for server readiness
+            if (output.includes('Uvicorn running on') || 
+                output.includes('Server started') || 
+                output.includes('Application startup complete') ||
+                output.includes('Started server process') ||
+                output.includes('Starting PDF Analyzer Server')) {
+              console.log('Python service detected as ready from stdout');
+              serverReady = true;
+              updateLoadingStatus('PDF analyzer ready!');
+            }
+          } catch (encodingError) {
+            console.warn('Encoding error in stdout:', encodingError.message);
+            // Try with different encoding
+            try {
+              const output = data.toString('latin1');
+              console.log('Python server stdout (latin1):', JSON.stringify(output));
+            } catch (fallbackError) {
+              console.warn('Fallback encoding also failed:', fallbackError.message);
+            }
           }
         });
         
         pythonProcess.stderr.on('data', (data) => {
-          const output = data.toString('utf8');
-          console.log('Python server stderr:', JSON.stringify(output));
-          // More flexible detection for server readiness
-          if (output.includes('Uvicorn running on') || 
-              output.includes('Server started') || 
-              output.includes('Application startup complete') ||
-              output.includes('Started server process') ||
-              output.includes('Starting PDF Analyzer Server')) {
-            console.log('Python service detected as ready from stderr');
-            serverReady = true;
-            updateLoadingStatus('PDF analyzer ready!');
+          try {
+            const output = data.toString('utf8');
+            console.log('Python server stderr:', JSON.stringify(output));
+            
+            // Check for encoding errors
+            if (output.includes('UnicodeDecodeError') || output.includes('UnicodeEncodeError')) {
+              console.error('Python service encoding error detected:', output);
+              updateLoadingStatus('PDF analyzer encoding error, retrying...');
+            }
+            
+            // More flexible detection for server readiness
+            if (output.includes('Uvicorn running on') || 
+                output.includes('Server started') || 
+                output.includes('Application startup complete') ||
+                output.includes('Started server process') ||
+                output.includes('Starting PDF Analyzer Server')) {
+              console.log('Python service detected as ready from stderr');
+              serverReady = true;
+              updateLoadingStatus('PDF analyzer ready!');
+            }
+          } catch (encodingError) {
+            console.warn('Encoding error in stderr:', encodingError.message);
+            // Try with different encoding
+            try {
+              const output = data.toString('latin1');
+              console.log('Python server stderr (latin1):', JSON.stringify(output));
+            } catch (fallbackError) {
+              console.warn('Fallback encoding also failed:', fallbackError.message);
+            }
           }
         });
         
@@ -249,6 +288,8 @@ export async function startPythonService() {
             errorMessage = `Permission denied accessing: ${executablePath}`;
           } else if (error.code === 'EPERM') {
             errorMessage = `Operation not permitted: ${executablePath}`;
+          } else if (error.message && error.message.includes('encoding')) {
+            errorMessage = `Encoding error in Python service: ${error.message}`;
           }
           
           updateLoadingStatus(`PDF analyzer failed: ${errorMessage}`);

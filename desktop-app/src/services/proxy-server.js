@@ -136,8 +136,8 @@ export function startProxyServer() {
               return;
             }
           } catch (pythonError) {
-            console.error('Python service error for price calculation, falling back to online service:', pythonError);
-            // Continue to online service fallback
+            console.error('Python service error for price calculation:', pythonError);
+            // Continue to investigate the root cause
           }
         }
         

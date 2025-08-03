@@ -80,12 +80,15 @@ export function getPythonExecutablePath() {
 // Start Python service in server mode
 export async function startPythonService() {
   return new Promise((resolve, reject) => {
+    console.log('=== Starting Python Service ===');
     updateLoadingStatus('Initializing PDF analyzer...');
     
     const pythonExePath = getPythonExecutablePath();
-    
-    console.log('Platform:', process.platform);
     console.log('Python executable path:', pythonExePath);
+    console.log('Python executable exists:', fs.existsSync(pythonExePath));
+    console.log('Current working directory:', process.cwd());
+    console.log('Platform:', process.platform);
+    console.log('Target port for Python service:', CONFIG.PYTHON_PORT);
     
     if (!fs.existsSync(pythonExePath)) {
       console.error('Python executable not found:', pythonExePath);
@@ -135,6 +138,7 @@ export async function startPythonService() {
     findAvailablePort(CONFIG.PYTHON_PORT)
       .then((availablePort) => {
         pythonServicePort = availablePort;
+        console.log('Found available port for Python service:', availablePort);
         updateLoadingStatus(`Starting PDF analyzer service on port ${pythonServicePort}...`);
         
         // Environment variables
@@ -199,17 +203,45 @@ export async function startPythonService() {
           }
         });
         
-        pythonProcess.on('close', (code) => {
-          console.log(`Python server exited with code ${code}`);
+        pythonProcess.on('close', (code, signal) => {
+          console.log(`Python server exited with code ${code}, signal: ${signal}`);
+          console.log('Executable path was:', executablePath);
+          console.log('Executable args were:', executableArgs);
+          
+          // Provide more detailed exit information
+          if (code !== 0) {
+            console.error(`Python service crashed with exit code ${code}`);
+            if (code === 9009) {
+              console.error('Error 9009: This usually means the executable or a dependency was not found');
+            } else if (code === 1) {
+              console.error('Error 1: General error, check Python service logs above');
+            }
+          }
+          
           pythonProcess = null;
           pythonServicePort = null;
         });
         
         pythonProcess.on('error', (error) => {
           console.error('Failed to start Python server:', error);
-          updateLoadingStatus('PDF analyzer failed, using online service...');
+          console.error('Executable path:', executablePath);
+          console.error('Executable args:', executableArgs);
+          console.error('Working directory:', process.cwd());
+          console.error('Python executable exists:', fs.existsSync(pythonExePath));
+          
+          // Provide detailed error information
+          let errorMessage = 'Python service failed to start';
+          if (error.code === 'ENOENT') {
+            errorMessage = `Python executable not found: ${executablePath}`;
+          } else if (error.code === 'EACCES') {
+            errorMessage = `Permission denied accessing: ${executablePath}`;
+          } else if (error.code === 'EPERM') {
+            errorMessage = `Operation not permitted: ${executablePath}`;
+          }
+          
+          updateLoadingStatus(`PDF analyzer failed: ${errorMessage}`);
           pythonServicePort = null;
-          reject(error);
+          reject(new Error(errorMessage));
         });
         
         // Wait for server to be ready
@@ -230,13 +262,19 @@ export async function startPythonService() {
         setTimeout(() => {
           if (!serverReady) {
             clearInterval(checkReady);
-            startProxyServer().then(() => {
-              if (pythonServicePort) {
-                resolve();
-              } else {
-                reject(new Error('Python service failed to start'));
-              }
-            }).catch(reject);
+            console.error('Python service timeout after 20 seconds');
+            console.error('Server ready status:', serverReady);
+            console.error('Python process status:', pythonProcess ? 'running' : 'not running');
+            console.error('Python process PID:', pythonProcess ? pythonProcess.pid : 'N/A');
+            
+            // Kill the process if it's still running
+            if (pythonProcess && !pythonProcess.killed) {
+              console.log('Killing unresponsive Python process...');
+              pythonProcess.kill('SIGTERM');
+            }
+            
+            pythonServicePort = null;
+            reject(new Error('Python service startup timeout - service did not respond within 20 seconds'));
           }
         }, 20000);
       })

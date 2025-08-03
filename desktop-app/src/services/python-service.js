@@ -1,4 +1,4 @@
-import { spawn, execSync } from 'child_process';
+import { spawn } from 'child_process';
 import { app } from 'electron';
 import path from 'path';
 import fs from 'fs';
@@ -30,10 +30,9 @@ export function getPythonExecutablePath() {
     
   const platform = process.platform;
   
-  // Improved file detection for different platforms
+  // Direct executable detection
   let exeName;
   if (platform === 'win32') {
-    // Try direct executable first (most reliable)
     const possibleNames = ['pdf_analyzer.exe', 'pdf_analyzer'];
     
     for (const name of possibleNames) {
@@ -44,41 +43,13 @@ export function getPythonExecutablePath() {
       }
     }
     
-    // Try PowerShell script as fallback
-    const psWrapperPath = normalizePath(path.join(basePath, 'run_python_utf8.ps1'));
-    if (fs.existsSync(psWrapperPath)) {
-      console.log(`Found Python UTF-8 PowerShell wrapper: ${psWrapperPath}`);
-      return psWrapperPath;
-    }
-    
-    // Try batch file wrapper
-    const batWrapperPath = normalizePath(path.join(basePath, 'run_python_utf8.bat'));
-    if (fs.existsSync(batWrapperPath)) {
-      console.log(`Found Python UTF-8 batch wrapper: ${batWrapperPath}`);
-      return batWrapperPath;
-    }
-    
-    // Try Python wrapper script only if Python is available
-     const pythonWrapperPath = normalizePath(path.join(basePath, 'python_wrapper.py'));
-     if (fs.existsSync(pythonWrapperPath)) {
-       // Check if Python is available in system
-       try {
-         execSync('python --version', { stdio: 'ignore' });
-         console.log(`Found Python UTF-8 wrapper script: ${pythonWrapperPath}`);
-         return pythonWrapperPath;
-       } catch {
-         console.log('Python not available in system, skipping wrapper script');
-       }
-     }
-    
-    // Fallback to default name
     exeName = 'pdf_analyzer.exe';
   } else {
     exeName = 'pdf_analyzer';
   }
   
   const defaultPath = normalizePath(path.join(basePath, exeName));
-  console.log(`Using default Python executable path: ${defaultPath}`);
+  console.log(`Using Python executable path: ${defaultPath}`);
   return defaultPath;
 }
 
@@ -181,25 +152,7 @@ export async function startPythonService() {
         let executablePath = pythonExePath;
         let executableArgs = pythonArgs;
         
-        // Use wrapper scripts for better encoding handling
-        if (process.platform === 'win32') {
-          const serviceDir = path.dirname(pythonExePath);
-          const wrapperBat = normalizePath(path.join(serviceDir, 'run_python_utf8.bat'));
-          const wrapperPs1 = normalizePath(path.join(serviceDir, 'run_python_utf8.ps1'));
-          
-          if (fs.existsSync(wrapperBat)) {
-            console.log('Using Windows batch wrapper for UTF-8 encoding');
-            executablePath = wrapperBat;
-            executableArgs = pythonArgs;
-          } else if (fs.existsSync(wrapperPs1)) {
-            console.log('Using PowerShell wrapper for UTF-8 encoding');
-            executablePath = 'powershell.exe';
-            executableArgs = ['-ExecutionPolicy', 'Bypass', '-File', wrapperPs1, ...pythonArgs];
-          } else if (pythonExePath.endsWith('.py')) {
-            executablePath = 'python';
-            executableArgs = [pythonExePath, ...pythonArgs];
-          }
-        }
+        console.log(`Starting Python executable directly: ${executablePath}`);
         
         pythonProcess = spawn(executablePath, executableArgs, spawnOptions);
         

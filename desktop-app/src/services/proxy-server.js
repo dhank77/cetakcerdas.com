@@ -5,9 +5,11 @@ import FormData from 'form-data';
 import { CONFIG } from '../config.js';
 import { fetchWithRetry } from '../utils/network.js';
 import { pythonServicePort } from './python-service.js';
+import { findAvailablePort } from '../utils/port.js';
 
 // Global server reference
 export let localServer;
+export let proxyServerPort;
 
 // Start proxy server that forwards requests to Python server
 export function startProxyServer() {
@@ -183,14 +185,24 @@ export function startProxyServer() {
       res.status(503).json({ error: 'Service not available' });
     });
     
-    localServer = app.listen(CONFIG.LOCAL_PORT, '127.0.0.1', () => {
-      console.log(`Local proxy server running on port ${CONFIG.LOCAL_PORT}`);
-      resolve();
-    });
-    
-    localServer.on('error', (error) => {
-      console.error('Local proxy server error:', error);
-      reject(error);
-    });
+    // Find available port for proxy server
+    findAvailablePort(CONFIG.LOCAL_PORT)
+      .then(availablePort => {
+        proxyServerPort = availablePort;
+        
+        localServer = app.listen(availablePort, '127.0.0.1', () => {
+          console.log(`Local proxy server running on port ${availablePort}`);
+          resolve(availablePort);
+        });
+        
+        localServer.on('error', (error) => {
+          console.error('Local proxy server error:', error);
+          reject(error);
+        });
+      })
+      .catch(error => {
+        console.error('Failed to find available port for proxy server:', error);
+        reject(error);
+      });
   });
 }

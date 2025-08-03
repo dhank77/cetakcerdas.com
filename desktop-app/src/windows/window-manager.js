@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { CONFIG } from '../config.js';
 import { createMenu } from './menu.js';
+import { proxyServerPort } from '../services/proxy-server.js';
 
 // ES6 module equivalent of __dirname with Windows compatibility
 const __filename = fileURLToPath(import.meta.url);
@@ -110,7 +111,8 @@ export function createWindow() {
   mainWindow.webContents.session.webRequest.onBeforeRequest(
     { urls: ['*://cetakcerdas.com/calculate-price'] },
     (details, callback) => {
-      callback({ redirectURL: `http://127.0.0.1:${CONFIG.LOCAL_PORT}/calculate-price` });
+      const port = proxyServerPort || CONFIG.LOCAL_PORT;
+      callback({ redirectURL: `http://127.0.0.1:${port}/calculate-price` });
     }
   );
 }

@@ -368,10 +368,12 @@ export async function startPythonService(retryCount = 0) {
               console.log('Python service is ready and healthy, starting proxy server...');
               clearInterval(checkReady);
               updateLoadingStatus('Starting local services...');
-              startProxyServer().then(() => {
+              startProxyServer().then((proxyPort) => {
+                console.log(`Proxy server started successfully on port ${proxyPort}`);
                 updateLoadingStatus('Services ready! Loading application...');
                 resolve();
               }).catch((error) => {
+                console.error('Failed to start proxy server:', error);
                 pythonServicePort = null;
                 reject(error);
               });
@@ -382,10 +384,12 @@ export async function startPythonService(retryCount = 0) {
                 console.log('Health check failed multiple times, but proceeding anyway...');
                 clearInterval(checkReady);
                 updateLoadingStatus('Starting local services...');
-                startProxyServer().then(() => {
+                startProxyServer().then((proxyPort) => {
+                  console.log(`Proxy server started successfully on port ${proxyPort}`);
                   updateLoadingStatus('Services ready! Loading application...');
                   resolve();
                 }).catch((error) => {
+                  console.error('Failed to start proxy server:', error);
                   pythonServicePort = null;
                   reject(error);
                 });
@@ -408,10 +412,12 @@ export async function startPythonService(retryCount = 0) {
               if (isHealthy) {
                 console.log('Final health check succeeded, proceeding...');
                 updateLoadingStatus('Starting local services...');
-                startProxyServer().then(() => {
+                startProxyServer().then((proxyPort) => {
+                  console.log(`Proxy server started successfully on port ${proxyPort}`);
                   updateLoadingStatus('Services ready! Loading application...');
                   resolve();
                 }).catch((error) => {
+                  console.error('Failed to start proxy server:', error);
                   pythonServicePort = null;
                   reject(error);
                 });

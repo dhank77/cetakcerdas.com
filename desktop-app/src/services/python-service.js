@@ -193,7 +193,7 @@ export async function startPythonService() {
               output.includes('Server started') || 
               output.includes('Application startup complete') ||
               output.includes('Started server process') ||
-              output.includes('🚀 Starting PDF Analyzer Server')) {
+              output.includes('Starting PDF Analyzer Server')) {
             console.log('Python service detected as ready from stdout');
             serverReady = true;
             updateLoadingStatus('PDF analyzer ready!');
@@ -208,7 +208,7 @@ export async function startPythonService() {
               output.includes('Server started') || 
               output.includes('Application startup complete') ||
               output.includes('Started server process') ||
-              output.includes('🚀 Starting PDF Analyzer Server')) {
+              output.includes('Starting PDF Analyzer Server')) {
             console.log('Python service detected as ready from stderr');
             serverReady = true;
             updateLoadingStatus('PDF analyzer ready!');

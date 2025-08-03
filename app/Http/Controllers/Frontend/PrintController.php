@@ -103,8 +103,8 @@ class PrintController extends Controller
                        $request->hasHeader('X-Desktop-App') ||
                        $request->ip() === '127.0.0.1';
         
-        // For desktop app, redirect directly to protected-validated
-        if ($isDesktopApp) {
+        $protectedUserId = session('protected_user');
+        if ($isDesktopApp && $protectedUserId) {
             return redirect()->route('print.protected.validated');
         }
         
@@ -142,9 +142,24 @@ class PrintController extends Controller
 
     public function protectedValidated(Request $request) : Response|RedirectResponse 
     {
-        $isDesktopApp = str_contains($request->userAgent(), 'Electron') || 
-                       $request->hasHeader('X-Desktop-App') ||
-                       $request->ip() === '127.0.0.1';
+        // Debug logging for desktop app detection
+        $userAgent = $request->userAgent();
+        $hasElectron = str_contains($userAgent, 'Electron');
+        $hasDesktopHeader = $request->hasHeader('X-Desktop-App');
+        $desktopHeaderValue = $request->header('X-Desktop-App');
+        $isLocalhost = $request->ip() === '127.0.0.1';
+        
+        \Log::info('Desktop App Detection Debug', [
+            'user_agent' => $userAgent,
+            'has_electron' => $hasElectron,
+            'has_desktop_header' => $hasDesktopHeader,
+            'desktop_header_value' => $desktopHeaderValue,
+            'is_localhost' => $isLocalhost,
+            'client_ip' => $request->ip(),
+            'all_headers' => $request->headers->all()
+        ]);
+        
+        $isDesktopApp = $hasElectron || $hasDesktopHeader || $isLocalhost;
         
         $protectedUserId = session('protected_user');
         

@@ -4,9 +4,18 @@ import { fileURLToPath } from 'url';
 import { CONFIG } from '../config.js';
 import { createMenu } from './menu.js';
 
-// ES6 module equivalent of __dirname
+// ES6 module equivalent of __dirname with Windows compatibility
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Normalize paths for cross-platform compatibility
+function getAssetPath(relativePath) {
+  return path.normalize(path.join(__dirname, relativePath));
+}
+
+function getFrontendPath(relativePath) {
+  return path.normalize(path.join(__dirname, '../../frontend-build', relativePath));
+}
 
 // Global window references
 export let mainWindow;
@@ -25,12 +34,12 @@ export function createLoadingWindow() {
       nodeIntegration: false,
       contextIsolation: true
     },
-    icon: path.join(__dirname, '../../assets/icon.png'),
+    icon: getAssetPath('../../assets/icon.png'),
     show: false
   });
 
   // Load loading page
-  loadingWindow.loadFile(path.join(__dirname, '../../frontend-build/loading.html'));
+  loadingWindow.loadFile(getFrontendPath('loading.html'));
 
   loadingWindow.once('ready-to-show', () => {
     loadingWindow.show();
@@ -51,9 +60,9 @@ export function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, '../preload.js')
+      preload: getAssetPath('../preload.js')
     },
-    icon: path.join(__dirname, '../../assets/icon.png'),
+    icon: getAssetPath('../../assets/icon.png'),
     show: false
   });
 
@@ -122,10 +131,10 @@ export function createFileBrowserWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, '../preload.js')
+      preload: getAssetPath('../preload.js')
     },
     title: 'Local File Browser - Cetak Cerdas',
-    icon: path.join(__dirname, '../../assets/icon.png')
+    icon: getAssetPath('../../assets/icon.png')
   });
   
   // Load the main application but with a special parameter for file browser mode

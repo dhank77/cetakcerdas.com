@@ -1,23 +1,102 @@
-# Windows Calculate-Price Error 500 Troubleshooting Guide
+# Windows Troubleshooting Guide
 
-## Problem Description
-The `calculate-price` endpoint returns a 500 error on Windows but works fine on macOS.
+This guide helps resolve common issues when running the Cetak Cerdas Desktop App on Windows.
 
-## Root Causes Identified
+## Common Issues
 
-### 1. Platform-Specific Environment Variables
+### 1. Python Service Not Starting
+
+**Symptoms:**
+- Error: "Python was not found"
+- Exit code 9009
+- Application fails to load
+
+**Solutions:**
+
+#### Option 1: Use the Compiled Executable (Recommended)
+The app includes a pre-compiled `pdf_analyzer.exe` that doesn't require Python installation:
+
+1. Ensure `pdf_analyzer.exe` exists in the `python-service` folder
+2. The app will automatically use this executable
+3. No additional Python installation required
+
+#### Option 2: Install Python (Alternative)
+If you prefer to use Python directly:
+
+1. Download Python 3.8+ from [python.org](https://python.org)
+2. During installation, check "Add Python to PATH"
+3. Restart your computer
+4. Verify installation: Open Command Prompt and run `python --version`
+
+### 2. Encoding Issues
+
+**Symptoms:**
+- Garbled text in console output
+- UnicodeDecodeError or UnicodeEncodeError
+- Application crashes with encoding-related errors
+
+**Solutions:**
+The app includes UTF-8 wrapper scripts that automatically handle encoding:
+
+- `run_python_utf8.bat` - Batch file wrapper
+- `run_python_utf8.ps1` - PowerShell wrapper
+
+These scripts:
+- Set UTF-8 code page (`chcp 65001`)
+- Configure Python UTF-8 environment variables
+- Handle encoding errors gracefully
+
+### 3. Path Resolution Issues (NEW)
+
+**Symptoms:**
+- "Failed to fetch" errors when calculating price
+- Loading window not appearing
+- File not found errors for assets
+
+**Root Cause:**
+Windows uses different path separators (`\`) compared to Unix systems (`/`). ES6 modules with `import.meta.url` can cause path resolution issues.
+
+**Solutions Applied:**
+
+1. **Enhanced Path Normalization:**
+   - Added `path.normalize()` for all file paths
+   - Cross-platform compatible path resolution
+   - Proper handling of Windows path separators
+
+2. **Improved fileURLToPath Usage:**
+   ```javascript
+   // Before (problematic on Windows)
+   const __dirname = path.dirname(new URL(import.meta.url).pathname);
+   
+   // After (Windows compatible)
+   const __filename = fileURLToPath(import.meta.url);
+   const __dirname = path.dirname(__filename);
+   ```
+
+3. **Helper Functions for Path Resolution:**
+   ```javascript
+   function getAssetPath(relativePath) {
+     return path.normalize(path.join(__dirname, relativePath));
+   }
+   
+   function getFrontendPath(relativePath) {
+     return path.normalize(path.join(__dirname, '../../frontend-build', relativePath));
+   }
+   ```
+
+### 4. Platform-Specific Environment Variables
 - **Issue**: The code was setting `OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES` on all platforms
 - **Fix**: Now only sets this environment variable on macOS (`darwin` platform)
 
-### 2. Python Executable Path Issues
+### 5. Python Executable Path Issues
 - **Issue**: Windows executable (`pdf_analyzer.exe`) might not exist or have wrong permissions
 - **Fix**: Added comprehensive path checking and Windows-specific access validation
 
-### 3. Port Binding Issues
+### 6. Port Binding Issues
 - **Issue**: Windows has different port binding behavior and firewall restrictions
 - **Fix**: Added detailed error logging for port binding issues with Windows-specific error codes
 
-### 4. Service Startup Timing
+### 7. Service Startup Timing
 - **Issue**: Windows may need more time for services to start
 - **Fix**: Increased timeout from 20s to 30s on Windows platform
 

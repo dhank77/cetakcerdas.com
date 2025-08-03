@@ -1,6 +1,6 @@
 // Application configuration
 export const CONFIG = {
-  SERVER_URL: 'https://cetakcerdas.com',
+  SERVER_URL: process.argv.includes('--dev') ? 'http://print.test' : 'https://cetakcerdas.com',
   PYTHON_PORT: 9006,
   LOCAL_PORT: 3001,
   isDev: process.argv.includes('--dev')

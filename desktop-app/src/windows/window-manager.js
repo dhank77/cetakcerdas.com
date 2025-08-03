@@ -94,11 +94,14 @@ export function createWindow() {
 
   createMenu();
   
-  // Add desktop app headers
+  // Add desktop app headers with multiple identification methods
   mainWindow.webContents.session.webRequest.onBeforeSendHeaders(
-    { urls: ['*://cetakcerdas.com/*'] },
+    { urls: ['*://cetakcerdas.com/*', '*://localhost:*/*', '*://127.0.0.1:*/*'] },
     (details, callback) => {
       details.requestHeaders['X-Desktop-App'] = 'true';
+      details.requestHeaders['X-Electron-App'] = 'true';
+      details.requestHeaders['X-Local-App'] = 'true';
+      details.requestHeaders['User-Agent'] = details.requestHeaders['User-Agent'] + ' CetakCerdas/1.0.0';
       callback({ requestHeaders: details.requestHeaders });
     }
   );

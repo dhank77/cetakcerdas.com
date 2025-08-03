@@ -99,9 +99,14 @@ class PrintController extends Controller
     public function protected(Request $request): Response|RedirectResponse
     {
         // Check if request is from desktop app (Electron)
+        // Enhanced desktop app detection with multiple fallback methods
         $isDesktopApp = str_contains($request->userAgent(), 'Electron') || 
                        $request->hasHeader('X-Desktop-App') ||
-                       $request->ip() === '127.0.0.1';
+                       $request->hasHeader('X-Electron-App') ||
+                       $request->ip() === '127.0.0.1' ||
+                       $request->ip() === '::1' ||
+                       str_contains($request->userAgent(), 'CetakCerdas') ||
+                       $request->hasHeader('X-Local-App');
         
         $protectedUserId = session('protected_user');
         if ($isDesktopApp && $protectedUserId) {
@@ -142,24 +147,9 @@ class PrintController extends Controller
 
     public function protectedValidated(Request $request) : Response|RedirectResponse 
     {
-        // Debug logging for desktop app detection
-        $userAgent = $request->userAgent();
-        $hasElectron = str_contains($userAgent, 'Electron');
-        $hasDesktopHeader = $request->hasHeader('X-Desktop-App');
-        $desktopHeaderValue = $request->header('X-Desktop-App');
-        $isLocalhost = $request->ip() === '127.0.0.1';
-        
-        \Log::info('Desktop App Detection Debug', [
-            'user_agent' => $userAgent,
-            'has_electron' => $hasElectron,
-            'has_desktop_header' => $hasDesktopHeader,
-            'desktop_header_value' => $desktopHeaderValue,
-            'is_localhost' => $isLocalhost,
-            'client_ip' => $request->ip(),
-            'all_headers' => $request->headers->all()
-        ]);
-        
-        $isDesktopApp = $hasElectron || $hasDesktopHeader || $isLocalhost;
+        $isDesktopApp = str_contains($request->userAgent(), 'Electron') || 
+                       $request->hasHeader('X-Desktop-App') ||
+                       $request->ip() === '127.0.0.1';
         
         $protectedUserId = session('protected_user');
         

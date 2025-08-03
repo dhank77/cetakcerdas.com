@@ -1,4 +1,4 @@
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import { app } from 'electron';
 import path from 'path';
 import fs from 'fs';
@@ -28,11 +28,15 @@ export function getPythonExecutablePath() {
   // Improved file detection for different platforms
   let exeName;
   if (platform === 'win32') {
-    // Try Python wrapper script first (most robust for UTF-8)
-    const pythonWrapperPath = path.join(basePath, 'python_wrapper.py');
-    if (fs.existsSync(pythonWrapperPath)) {
-      console.log(`Found Python UTF-8 wrapper script: ${pythonWrapperPath}`);
-      return pythonWrapperPath;
+    // Try direct executable first (most reliable)
+    const possibleNames = ['pdf_analyzer.exe', 'pdf_analyzer'];
+    
+    for (const name of possibleNames) {
+      const fullPath = path.join(basePath, name);
+      if (fs.existsSync(fullPath)) {
+        console.log(`Found Python executable: ${fullPath}`);
+        return fullPath;
+      }
     }
     
     // Try PowerShell script as fallback
@@ -49,16 +53,18 @@ export function getPythonExecutablePath() {
       return batWrapperPath;
     }
     
-    // Fallback to direct executable if wrapper not found
-    const possibleNames = ['pdf_analyzer.exe', 'pdf_analyzer'];
-    
-    for (const name of possibleNames) {
-      const fullPath = path.join(basePath, name);
-      if (fs.existsSync(fullPath)) {
-        console.log(`Found Python executable: ${fullPath}`);
-        return fullPath;
-      }
-    }
+    // Try Python wrapper script only if Python is available
+     const pythonWrapperPath = path.join(basePath, 'python_wrapper.py');
+     if (fs.existsSync(pythonWrapperPath)) {
+       // Check if Python is available in system
+       try {
+         execSync('python --version', { stdio: 'ignore' });
+         console.log(`Found Python UTF-8 wrapper script: ${pythonWrapperPath}`);
+         return pythonWrapperPath;
+       } catch {
+         console.log('Python not available in system, skipping wrapper script');
+       }
+     }
     
     // Fallback to default name
     exeName = 'pdf_analyzer.exe';

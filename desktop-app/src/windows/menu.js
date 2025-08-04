@@ -70,6 +70,79 @@ export function createMenu() {
       ]
     },
     {
+      label: 'Settings',
+      submenu: [
+        {
+          label: 'Office Application',
+          submenu: [
+            {
+              label: 'Auto Detect',
+              type: 'radio',
+              checked: true,
+              click: () => {
+                // Set preference to auto-detect office application
+                if (mainWindow) {
+                  mainWindow.webContents.send('office-app-preference', { type: 'auto' });
+                }
+              }
+            },
+            {
+              label: 'LibreOffice',
+              type: 'radio',
+              click: () => {
+                // Set preference to use LibreOffice
+                if (mainWindow) {
+                  mainWindow.webContents.send('office-app-preference', { type: 'libreoffice' });
+                }
+              }
+            },
+            {
+              label: 'Microsoft Office',
+              type: 'radio',
+              click: () => {
+                // Set preference to use Microsoft Office
+                if (mainWindow) {
+                  mainWindow.webContents.send('office-app-preference', { type: 'msoffice' });
+                }
+              }
+            },
+            {
+              label: 'WPS Office',
+              type: 'radio',
+              click: () => {
+                // Set preference to use WPS Office
+                if (mainWindow) {
+                  mainWindow.webContents.send('office-app-preference', { type: 'wps' });
+                }
+              }
+            }
+          ]
+        },
+        {
+          type: 'separator'
+        },
+        {
+          label: 'Install LibreOffice Guide',
+          click: () => {
+            dialog.showMessageBox(mainWindow, {
+              type: 'info',
+              title: 'Install LibreOffice',
+              message: 'LibreOffice Installation Guide',
+              detail: 'To print DOCX files optimally, please install LibreOffice (free) from:\n\nhttps://www.libreoffice.org/download/\n\nAfter installation, restart the application to enable DOCX conversion and printing features.',
+              buttons: ['OK', 'Open Download Page'],
+              defaultId: 0
+            }).then((result) => {
+              if (result.response === 1) {
+                // Open LibreOffice download page
+                // eslint-disable-next-line @typescript-eslint/no-require-imports
+                require('electron').shell.openExternal('https://www.libreoffice.org/download/');
+              }
+            });
+          }
+        }
+      ]
+    },
+    {
       label: 'Help',
       submenu: [
         {

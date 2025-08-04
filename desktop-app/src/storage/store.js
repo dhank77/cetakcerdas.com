@@ -106,9 +106,50 @@ export function savePrintSettings(settings) {
 export function clearAnalysisCache() {
   try {
     analysisStore.set('analyzedFiles', []);
-    return { success: true };
+    console.log('✅ Analysis cache cleared');
+    return true;
   } catch (error) {
-    console.error('Error clearing analysis cache:', error);
-    return { success: false, error: error.message };
+    console.error('❌ Error clearing analysis cache:', error);
+    return false;
+  }
+}
+
+// Office application preference store
+export const officeStore = new Store({
+  name: 'office-preferences',
+  defaults: {
+    officeApp: {
+      type: 'auto', // 'auto', 'libreoffice', 'msoffice', 'wps'
+      lastUpdated: Date.now()
+    }
+  }
+});
+
+// Save office application preference
+export function saveOfficePreference(preference) {
+  try {
+    const officePreference = {
+      type: preference.type || 'auto',
+      lastUpdated: Date.now()
+    };
+    
+    officeStore.set('officeApp', officePreference);
+    console.log('✅ Office preference saved:', officePreference);
+    return true;
+  } catch (error) {
+    console.error('❌ Error saving office preference:', error);
+    return false;
+  }
+}
+
+// Get office application preference
+export function getOfficePreference() {
+  try {
+    const preference = officeStore.get('officeApp', { type: 'auto', lastUpdated: Date.now() });
+    console.log('✅ Office preference retrieved:', preference);
+    return preference;
+  } catch (error) {
+    console.error('❌ Error getting office preference:', error);
+    return { type: 'auto', lastUpdated: Date.now() };
   }
 }

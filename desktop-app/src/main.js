@@ -2,7 +2,7 @@ import { app, BrowserWindow } from 'electron';
 import { createLoadingWindow, createWindow } from './windows/window-manager.js';
 import { startPythonService, pythonProcess } from './services/python-service.js';
 import { localServer } from './services/proxy-server.js';
-import { setupIpcHandlers, setupLocalFileHandlers } from './ipc/handlers.js';
+import { setupIpcHandlers, setupLocalFileHandlers, setupOfficePreferenceHandlers } from './ipc/handlers.js';
 
 // App event handlers
 app.whenReady().then(async () => {
@@ -10,6 +10,7 @@ app.whenReady().then(async () => {
     // Setup IPC handlers
     setupIpcHandlers();
     setupLocalFileHandlers();
+    setupOfficePreferenceHandlers();
     
     // Create loading window first
     createLoadingWindow();

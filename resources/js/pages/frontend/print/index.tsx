@@ -201,8 +201,18 @@ const Index = ({ user, priceSettingColor, priceSettingPhoto, priceSettingBw }: P
                 file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
                 file.name.toLowerCase().endsWith('.docx')
             )) {
-                const officeUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(result.file_url)}`;
-                setPreviewUrl(officeUrl);
+                // Check if this is a desktop app
+                const isDesktopApp = (window as Window & { electronAPI?: unknown; localFileAPI?: unknown }).electronAPI || 
+                                   (window as Window & { electronAPI?: unknown; localFileAPI?: unknown }).localFileAPI;
+                
+                if (isDesktopApp) {
+                    // For desktop app, set a special preview state for DOCX
+                    setPreviewUrl('docx-pending');
+                } else {
+                    // For web app, use Office Online viewer
+                    const officeUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(result.file_url)}`;
+                    setPreviewUrl(officeUrl);
+                }
             }
         } catch (err) {
             console.error('Analysis error:', err);

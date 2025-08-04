@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import { ipcMain, BrowserWindow, dialog, shell } from 'electron';
 import fs from 'fs';
 import FormData from 'form-data';
@@ -160,18 +161,19 @@ export function setupIpcHandlers() {
   // Enhanced print operations
   ipcMain.handle('print-local-file-enhanced', async (event, options) => {
     try {
-      const { filePath, printSettings } = options;
+      const { filePath, printSettings, officePreference } = options;
       
-      console.log('🖨️ Enhanced print request:', { filePath, printSettings });
+      console.log('🖨️ Enhanced print request:', { filePath, printSettings, officePreference });
       
       // Check file extension
       const fileExtension = filePath.toLowerCase().split('.').pop();
       const isDocxFile = fileExtension === 'docx';
       
       if (isDocxFile) {
-        console.log('📄 DOCX file detected, using system default application');
+        const officeApp = officePreference?.type || 'auto';
+        console.log('📄 DOCX file detected, using office preference:', officeApp);
         
-        // For DOCX files, try to open with system default application
+        // For DOCX files, use the selected office application
         try {
           const actualFilePath = filePath.startsWith('file://') ? filePath.replace('file://', '') : filePath;
           
@@ -180,8 +182,21 @@ export function setupIpcHandlers() {
             throw new Error('DOCX file not found');
           }
           
-          // Open with system default application
-          await shell.openPath(actualFilePath);
+          // Handle different office applications
+          if (officeApp === 'libreoffice') {
+            // Try to open with LibreOffice
+            const { spawn } = await import('child_process');
+            const libreOfficeProcess = spawn('libreoffice', ['--writer', actualFilePath], {
+              detached: true,
+              stdio: 'ignore'
+            });
+            libreOfficeProcess.unref();
+            console.log('✅ Opened with LibreOffice');
+          } else {
+            // For auto, microsoft, wps, or other options, use system default
+            await shell.openPath(actualFilePath);
+            console.log('✅ Opened with system default application');
+          }
           
           // Return success - user will need to print from the opened application
           return {
@@ -335,6 +350,7 @@ export function setupLocalFileHandlers() {
         price_photo: pricePhoto,
         total_price: totalPrice,
         file_name: fileName,
+        file_url: `file://${tempFilePath}`,
         analysis_mode: 'local_desktop'
       };
       
@@ -342,6 +358,104 @@ export function setupLocalFileHandlers() {
     } catch (error) {
       console.error('Error analyzing local file:', error);
       return { success: false, error: error.message };
+    }
+  });
+
+  // Uploaded file analysis handler (for files uploaded through web interface)
+  ipcMain.handle('analyze-uploaded-file', async (event, fileData) => {
+    try {
+      const { fileName, fileData: uint8Array } = fileData;
+      
+      if (!pythonServicePort) {
+        throw new Error('Python service is not ready');
+      }
+      
+      // Create a temporary file from the uploaded data
+      const path = require('path');
+      const os = require('os');
+      const tempDir = os.tmpdir();
+      const tempFileName = `temp_${Date.now()}_${fileName}`;
+      const tempFilePath = path.join(tempDir, tempFileName);
+      
+      // Write the file data to temporary file
+      const buffer = Buffer.from(uint8Array);
+      fs.writeFileSync(tempFilePath, buffer);
+      
+      // Create form data for analysis
+      const form = new FormData();
+      form.append('file', buffer, {
+        filename: fileName,
+        contentType: fileName.endsWith('.pdf') ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      });
+      
+      const response = await fetchWithRetry(`http://127.0.0.1:${pythonServicePort}/analyze-document?color_threshold=20&photo_threshold=30`, {
+        method: 'POST',
+        body: form,
+        headers: form.getHeaders()
+      });
+      
+      if (!response.ok) {
+        // Clean up temp file on error
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        try { fs.unlinkSync(tempFilePath); } catch (e) { /* empty */ }
+        throw new Error(`Analysis service error: ${response.status} ${response.statusText}`);
+      }
+      
+      const analysisResult = await response.json();
+      
+      // Calculate prices with default settings
+      const priceSettingColor = 1000;
+      const priceSettingBw = 500;
+      const priceSettingPhoto = 2000;
+      
+      const priceColor = (analysisResult.color_pages || 0) * priceSettingColor;
+      const priceBw = (analysisResult.bw_pages || 0) * priceSettingBw;
+      const pricePhoto = (analysisResult.photo_pages || 0) * priceSettingPhoto;
+      const totalPrice = priceColor + priceBw + pricePhoto;
+      
+      const result = {
+        ...analysisResult,
+        price_color: priceColor,
+        price_bw: priceBw,
+        price_photo: pricePhoto,
+        total_price: totalPrice,
+        file_name: fileName,
+        analysis_mode: 'local_desktop'
+      };
+      
+      return { success: true, data: result, tempFilePath };
+    } catch (error) {
+      console.error('Error analyzing uploaded file:', error);
+      return { success: false, error: error.message };
+    }
+  });
+}
+
+// Setup office application preference handlers
+export function setupOfficePreferenceHandlers() {
+  // Handle saving office application preference
+  ipcMain.handle('save-office-preference', async (event, preference) => {
+    try {
+      const { saveOfficePreference } = await import('../storage/store.js');
+      await saveOfficePreference(preference);
+      console.log('✅ Office preference saved:', preference);
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Error saving office preference:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Handle getting office application preference
+  ipcMain.handle('get-office-preference', async () => {
+    try {
+      const { getOfficePreference } = await import('../storage/store.js');
+      const preference = await getOfficePreference();
+      console.log('✅ Office preference retrieved:', preference);
+      return { success: true, preference };
+    } catch (error) {
+      console.error('❌ Error getting office preference:', error);
+      return { success: false, error: error.message, preference: { type: 'auto' } };
     }
   });
 }

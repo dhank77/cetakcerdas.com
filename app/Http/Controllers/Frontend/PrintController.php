@@ -51,7 +51,7 @@ class PrintController extends Controller
             if (!$url || count($url) < 3 || $url['2'] === "") {
                 return redirect()->back()->with([
                     'type' => 'success',
-                    'messages' => 'Pesanan selesai',
+                    'messages' => 'Pesanan selesai' . $request->items . " untuk URL yang tidak valid " . $url,
                 ]);
             }
             $slug = $url[2];

@@ -47,14 +47,23 @@ class PrintController extends Controller
         ]);
 
         if ($request->url) {
-            $url = explode('/', parse_url($request->url, PHP_URL_PATH));
-            if (!$url || count($url) < 3 || $url['2'] === "") {
-                return redirect()->back()->with([
-                    'type' => 'success',
-                    'messages' => 'Pesanan selesai' . $request->items . " untuk URL yang tidak valid " . $url,
-                ]);
+            $protectedUserId = session('protected_user');
+
+            if($protectedUserId) {
+                $user = User::where('id', $protectedUserId)->first();
+                abort_if(!$user, 404);
+            } else {
+                $url = explode('/', parse_url($request->url, PHP_URL_PATH));
+                if (!$url || count($url) < 3 || $url['2'] === "") {
+                    return redirect()->back()->with([
+                        'type' => 'success',
+                        'messages' => 'Pesanan selesai',
+                    ]);
+                }
+                $slug = $url[2];
+                $user = User::where('slug', $slug)->first();
+                abort_if(!$user, 404);
             }
-            $slug = $url[2];
 
             $items = json_decode($request->items);
             if (count($items) < 1) {
@@ -63,9 +72,6 @@ class PrintController extends Controller
                     'messages' => 'Pesanan tidak valid',
                 ]);
             }
-
-            $user = User::where('slug', $slug)->first();
-            abort_if(!$user, 404);
 
             foreach ($items as $item) {
                 $user->orders()->create([
@@ -85,7 +91,7 @@ class PrintController extends Controller
 
             return redirect()->back()->with([
                 'type' => 'success',
-                'messages' => 'Pesanan selesai ' . $request->items,
+                'messages' => 'Pesanan selesai ',
             ]);
         }
 

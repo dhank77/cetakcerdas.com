@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { ipcMain, BrowserWindow, dialog, shell } from 'electron';
 import fs from 'fs';
+import path from 'path';
 import FormData from 'form-data';
 import { mainWindow, createFileBrowserWindow } from '../windows/window-manager.js';
 import { fetchWithRetry } from '../utils/network.js';
@@ -24,6 +25,34 @@ export function setupIpcHandlers() {
         throw new Error('Main window not available');
       }
       
+      // Handle file:// URLs by serving them through a local server
+      let actualUrl = url;
+      if (url.startsWith('file://')) {
+        const filePath = url.replace('file://', '');
+        console.log('📁 Local file detected, serving through HTTP:', filePath);
+        
+        // Check if file exists
+        if (!fs.existsSync(filePath)) {
+          throw new Error('File not found: ' + filePath);
+        }
+        
+        // For local files, we'll serve them through the proxy server
+        const fileName = path.basename(filePath);
+        
+        // Copy file to a temporary location accessible by the proxy server
+        const tempDir = path.join(process.cwd(), 'temp-print');
+        if (!fs.existsSync(tempDir)) {
+          fs.mkdirSync(tempDir, { recursive: true });
+        }
+        
+        const tempFilePath = path.join(tempDir, fileName);
+        fs.copyFileSync(filePath, tempFilePath);
+        
+        // Use proxy server URL
+        actualUrl = `http://localhost:3001/temp-print/${fileName}`;
+        console.log('🌐 Serving file through proxy server:', actualUrl);
+      }
+      
       console.log('✅ Creating print window...');
       // Create a new window for printing (show as new tab)
       const printWindow = new BrowserWindow({
@@ -37,9 +66,9 @@ export function setupIpcHandlers() {
         title: 'Print Preview'
       });
       
-      console.log('📄 Loading document URL:', url);
+      console.log('📄 Loading document URL:', actualUrl);
       // Load the document URL
-      await printWindow.loadURL(url);
+      await printWindow.loadURL(actualUrl);
       
       console.log('⏳ Waiting for page to load...');
       // Wait for the page to load completely
@@ -350,7 +379,7 @@ export function setupLocalFileHandlers() {
         price_photo: pricePhoto,
         total_price: totalPrice,
         file_name: fileName,
-        file_url: `file://${tempFilePath}`,
+        file_url: `file://${filePath}`,
         analysis_mode: 'local_desktop'
       };
       

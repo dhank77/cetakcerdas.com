@@ -85,7 +85,7 @@ class PrintController extends Controller
 
             return redirect()->back()->with([
                 'type' => 'success',
-                'messages' => 'Pesanan selesai',
+                'messages' => 'Pesanan selesai ' . $request->items,
             ]);
         }
 

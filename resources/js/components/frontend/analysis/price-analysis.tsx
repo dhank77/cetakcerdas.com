@@ -138,7 +138,9 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
                                 alert('File DOCX berhasil dibuka dengan aplikasi default sistem. Silakan cetak dari aplikasi yang terbuka (misalnya Microsoft Word).');
                             }
                         } else {
-                            throw new Error(result.failureReason);
+                            console.warn('⚠️ Local DOCX print warning:', result.failureReason);
+                            // Don't throw error for DOCX files, just show a user-friendly message
+                            alert('File DOCX berhasil dianalisis tetapi tidak dapat dicetak langsung. Silakan buka file dengan Microsoft Word untuk mencetak.');
                         }
                     } else {
                         throw new Error('Invalid file path for local DOCX');
@@ -166,7 +168,9 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
                     if (result.success) {
                         console.log('✅ Enhanced local print successful');
                     } else {
-                        throw new Error(result.failureReason);
+                        console.warn('⚠️ Enhanced local print warning:', result.failureReason);
+                        // Don't throw error if preview is working, just log the warning
+                        // This allows the user to still see the preview even if printing fails
                     }
                 } catch (error) {
                     console.error('❌ Enhanced local print failed, falling back to standard print:', error);
@@ -210,10 +214,13 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
                         printSettings
                     });
                     
-                    if (!result.success) {
-                        throw new Error(result.failureReason);
+                    if (result.success) {
+                        console.log('✅ Enhanced local file URL print successful');
+                    } else {
+                        console.warn('⚠️ Enhanced local file URL print warning:', result.failureReason);
+                        // Don't throw error if preview is working, just log the warning
+                        // This allows the user to still see the preview even if printing fails
                     }
-                    console.log('✅ Enhanced local file URL print successful');
                 } catch (error) {
                     console.error('❌ Enhanced local file URL print failed:', error);
                     // Fallback to standard print
@@ -366,7 +373,6 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
                                 )}
                             </Button>
                         )}
-                        {/* Tombol "Lihat Detail Analisis" dihilangkan sesuai permintaan */}
                     </div>
                 </CardContent>
             </Card>

@@ -22,6 +22,7 @@ function getFrontendPath(relativePath) {
 export let mainWindow;
 export let loadingWindow;
 export let fileBrowserWindow;
+export let testWindow;
 
 // Create loading window
 export function createLoadingWindow() {
@@ -61,7 +62,7 @@ export function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: getAssetPath('../preload.js')
+      preload: path.join(__dirname, '../preload.js')
     },
     icon: getAssetPath('../../assets/icon.png'),
     show: false
@@ -136,7 +137,7 @@ export function createFileBrowserWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: getAssetPath('../preload.js')
+      preload: path.join(__dirname, '../preload.js')
     },
     title: 'Local File Browser - Cetak Cerdas',
     icon: getAssetPath('../../assets/icon.png')
@@ -150,4 +151,28 @@ export function createFileBrowserWindow() {
   });
   
   return fileBrowserWindow;
+}
+
+// Create test window for debugging desktop APIs
+export function createTestWindow() {
+  testWindow = new BrowserWindow({
+    width: 800,
+    height: 600,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, '../preload.js')
+    },
+    icon: getAssetPath('../../assets/icon.png'),
+    show: true
+  });
+
+  // Load test page
+  testWindow.loadFile(getAssetPath('../../test-desktop-api.html'));
+  
+  testWindow.webContents.openDevTools();
+
+  testWindow.on('closed', () => {
+    testWindow = null;
+  });
 }

@@ -1,5 +1,5 @@
 import { Menu, dialog, app } from 'electron';
-import { mainWindow } from './window-manager.js';
+import { mainWindow, createTestWindow } from './window-manager.js';
 
 // Create application menu
 export function createMenu() {
@@ -82,6 +82,10 @@ export function createMenu() {
               detail: 'Desktop application for print management with local PDF processing capabilities.'
             });
           }
+        },
+        {
+          label: 'Check for compability',
+          click: () => createTestWindow(),
         }
       ]
     }

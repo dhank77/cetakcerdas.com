@@ -32,6 +32,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onWindowStateChange: (callback) => {
     ipcRenderer.on('window-state-changed', callback);
     return () => ipcRenderer.removeListener('window-state-changed', callback);
+  },
+  
+  // Office application preference listener
+  onOfficeAppPreference: (callback) => {
+    ipcRenderer.on('office-app-preference', callback);
+    return () => ipcRenderer.removeListener('office-app-preference', callback);
+  },
+  
+  // Generic event listeners
+  on: (channel, callback) => {
+    ipcRenderer.on(channel, callback);
+  },
+  
+  removeListener: (channel, callback) => {
+    ipcRenderer.removeListener(channel, callback);
   }
 });
 
@@ -43,9 +58,14 @@ contextBridge.exposeInMainWorld('localFileAPI', {
   
   // File analysis operations
   analyzeLocalFile: (fileData) => ipcRenderer.invoke('analyze-local-file', fileData),
+  analyzeUploadedFile: (fileData) => ipcRenderer.invoke('analyze-uploaded-file', fileData),
   saveAnalysisResult: (fileData) => ipcRenderer.invoke('save-analysis-result', fileData),
   getAnalysisHistory: () => ipcRenderer.invoke('get-analysis-history'),
   clearAnalysisCache: () => ipcRenderer.invoke('clear-analysis-cache'),
+  
+  // Office application preferences
+  saveOfficePreference: (preference) => ipcRenderer.invoke('save-office-preference', preference),
+  getOfficePreference: () => ipcRenderer.invoke('get-office-preference'),
   
   // Order processing
   processOrder: (orderData) => ipcRenderer.invoke('process-order', orderData),

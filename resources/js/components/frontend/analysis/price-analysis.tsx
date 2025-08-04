@@ -27,6 +27,7 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
 }) => {
     const [isCartVisible, setIsCartVisible] = useState(false);
     const [isItemAdded, setIsItemAdded] = useState(false);
+    const [officePreference, setOfficePreference] = useState<{ type: string }>({ type: 'auto' });
 
     useEffect(() => {
         const existingCart = localStorage.getItem('printCart');
@@ -58,6 +59,47 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
         window.addEventListener('focus', handleWindowFocus);
         return () => window.removeEventListener('focus', handleWindowFocus);
     }, [isItemAdded]);
+
+    // Load and listen for office preference changes
+    useEffect(() => {
+        if (isDesktopApp && (window as any).electronAPI && (window as any).localFileAPI) {
+            // Load existing preference
+            const loadOfficePreference = async () => {
+                try {
+                    const result = await (window as any).localFileAPI.getOfficePreference();
+                    if (result.success && result.preference) {
+                        setOfficePreference(result.preference);
+                        console.log('📋 Office preference loaded:', result.preference);
+                    }
+                } catch (error) {
+                    console.error('❌ Failed to load office preference:', error);
+                }
+            };
+            loadOfficePreference();
+
+            const handleOfficePreference = async (event: any, preference: any) => {
+                console.log('📋 Office preference changed:', preference);
+                setOfficePreference(preference);
+                
+                // Save the preference
+                try {
+                    await (window as any).localFileAPI.saveOfficePreference(preference);
+                    console.log('✅ Office preference saved');
+                } catch (error) {
+                    console.error('❌ Failed to save office preference:', error);
+                }
+            };
+
+            // Listen for office preference changes
+            (window as any).electronAPI.on('office-app-preference', handleOfficePreference);
+
+            return () => {
+                if ((window as any).electronAPI.removeListener) {
+                    (window as any).electronAPI.removeListener('office-app-preference', handleOfficePreference);
+                }
+            };
+        }
+    }, [isDesktopApp]);
 
     const addToCart = async () => {
         if (!analysisResult) return;
@@ -145,7 +187,7 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
             // For local DOCX files, try to convert to PDF or use system default
             if (localFileAPI) {
                 try {
-                    console.log('🖨️ Attempting to print local DOCX file...');
+                    console.log('🖨️ Attempting to print local DOCX file with office preference:', officePreference.type);
                     const printSettings = await localFileAPI.getPrintSettings();
                     
                     // Use the original file path from analysis result
@@ -153,7 +195,8 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
                     if (filePath && filePath.startsWith('file://')) {
                         const result = await localFileAPI.printLocalFileEnhanced({
                             filePath: filePath,
-                            printSettings
+                            printSettings,
+                            officePreference: officePreference
                         });
                         
                         if (result.success) {

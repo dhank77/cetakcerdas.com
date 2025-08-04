@@ -97,6 +97,78 @@ const ProtectedIndex = ({ user, priceSettingColor, priceSettingPhoto, priceSetti
         setError(null);
 
         try {
+            // Check if this is a desktop app
+            const isDesktopApp = (window as Window & { electronAPI?: unknown; localFileAPI?: unknown }).electronAPI || 
+                               (window as Window & { electronAPI?: unknown; localFileAPI?: unknown }).localFileAPI;
+            
+            // For desktop app, use local analysis if available
+            if (isDesktopApp && (window as any).localFileAPI) {
+                console.log('🖥️ Using local analysis for desktop app');
+                
+                // Create a temporary file path for the uploaded file
+                const tempFileName = file.name;
+                const fileExtension = tempFileName.toLowerCase().split('.').pop();
+                
+                try {
+                    console.log('🔍 Starting local analysis for desktop app');
+                    console.log('- File name:', tempFileName);
+                    console.log('- File size:', file.size);
+                    console.log('- File extension:', fileExtension);
+                    
+                    // For desktop app, we need to save the file temporarily and analyze locally
+                    const fileBuffer = await file.arrayBuffer();
+                    const uint8Array = new Uint8Array(fileBuffer);
+                    
+                    console.log('📁 File buffer created, size:', uint8Array.length);
+                    
+                    // Use local file API to analyze the file
+                    console.log('🔄 Calling localFileAPI.analyzeUploadedFile...');
+                    const localAnalysisResult = await (window as any).localFileAPI.analyzeUploadedFile({
+                        fileName: tempFileName,
+                        fileData: uint8Array,
+                        fileSize: file.size
+                    });
+                    
+                    console.log('📊 Local analysis result:', localAnalysisResult);
+                    
+                    if (localAnalysisResult.success) {
+                        // Set the analysis result with local file path
+                        const result = localAnalysisResult.data;
+                        result.analysis_mode = 'local_desktop';
+                        result.file_url = `file://${localAnalysisResult.tempFilePath}`; // Use local file path
+                        
+                        console.log('✅ Local analysis successful!');
+                        console.log('- Analysis result:', result);
+                        console.log('- Temp file path:', localAnalysisResult.tempFilePath);
+                        console.log('- File URL set to:', result.file_url);
+                        
+                        setAnalysisResult(result);
+                        
+                        // For DOCX files, set special preview state
+                        if (fileExtension === 'docx') {
+                            setPreviewUrl('docx-pending');
+                            console.log('📄 DOCX file detected, preview set to docx-pending');
+                        } else if (result.file_url) {
+                            setPreviewUrl(result.file_url);
+                            console.log('🔗 Preview URL set to:', result.file_url);
+                        }
+                        
+                        console.log('✅ Local analysis completed successfully');
+                        return;
+                    } else {
+                        console.error('❌ Local analysis failed:', localAnalysisResult.error);
+                        console.warn('⚠️ Local analysis failed, falling back to web analysis:', localAnalysisResult.error);
+                        // Fall through to web analysis
+                    }
+                } catch (localError) {
+                    console.error('❌ Local analysis exception:', localError);
+                    console.warn('⚠️ Local analysis error, falling back to web analysis:', localError);
+                    // Fall through to web analysis
+                }
+            }
+            
+            // Web analysis (fallback or non-desktop)
+            console.log('🌐 Using web analysis');
             const formData = new FormData();
             formData.append('file', file);
             formData.append('slug', user?.slug ?? '');
@@ -200,8 +272,18 @@ const ProtectedIndex = ({ user, priceSettingColor, priceSettingPhoto, priceSetti
                 result.file_url &&
                 (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.toLowerCase().endsWith('.docx'))
             ) {
-                const officeUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(result.file_url)}`;
-                setPreviewUrl(officeUrl);
+                // Check if this is a desktop app
+                const isDesktopApp = (window as Window & { electronAPI?: unknown; localFileAPI?: unknown }).electronAPI || 
+                                   (window as Window & { electronAPI?: unknown; localFileAPI?: unknown }).localFileAPI;
+                
+                if (isDesktopApp) {
+                    // For desktop app, set a special preview state for DOCX
+                    setPreviewUrl('docx-pending');
+                } else {
+                    // For web app, use Office Online viewer
+                    const officeUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(result.file_url)}`;
+                    setPreviewUrl(officeUrl);
+                }
             }
         } catch (err) {
             console.error('Analysis error:', err);

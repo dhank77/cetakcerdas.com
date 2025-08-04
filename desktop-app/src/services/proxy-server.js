@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
 import FormData from 'form-data';
+import path from 'path';
 import { CONFIG } from '../config.js';
 import { fetchWithRetry } from '../utils/network.js';
 import { pythonServicePort } from './python-service.js';
@@ -17,6 +18,10 @@ export function startProxyServer() {
     const app = express();
     app.use(cors());
     app.use(express.json());
+    
+    // Serve static files from temp-print directory
+    const tempPrintDir = path.join(process.cwd(), 'temp-print');
+    app.use('/temp-print', express.static(tempPrintDir));
     
     // Health check endpoint
     app.get('/', (req, res) => {

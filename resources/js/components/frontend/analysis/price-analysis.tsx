@@ -2,7 +2,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AnalysisResult } from '@/types/analysis';
-import { Check, Plus } from 'lucide-react';
+import { Check, Plus, Eye } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import CartPopup from './cart-popup';
 
@@ -27,6 +27,7 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
 }) => {
     const [isCartVisible, setIsCartVisible] = useState(false);
     const [isItemAdded, setIsItemAdded] = useState(false);
+    const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
     useEffect(() => {
         const existingCart = localStorage.getItem('printCart');
@@ -145,7 +146,7 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
             // For local DOCX files, try to convert to PDF or use system default
             if (localFileAPI) {
                 try {
-                    console.log('🖨️ Attempting to print local DOCX file...');
+                    console.log('🖨️ Attempting to print local DOCX file with LibreOffice conversion...');
                     const printSettings = await localFileAPI.getPrintSettings();
                     
                     // Use the original file path from analysis result
@@ -191,10 +192,14 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
                     
                     if (result.success) {
                         console.log('✅ Enhanced local print successful');
+                        if (result.message) {
+                            alert(result.message);
+                        }
                     } else {
                         console.warn('⚠️ Enhanced local print warning:', result.failureReason);
-                        // Don't throw error if preview is working, just log the warning
-                        // This allows the user to still see the preview even if printing fails
+                        if (result.failureReason) {
+                            alert(result.failureReason);
+                        }
                     }
                 } catch (error) {
                     console.error('❌ Enhanced local print failed, falling back to standard print:', error);
@@ -247,10 +252,14 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
                     
                     if (result.success) {
                         console.log('✅ Enhanced local file URL print successful');
+                        if (result.message) {
+                            alert(result.message);
+                        }
                     } else {
                         console.warn('⚠️ Enhanced local file URL print warning:', result.failureReason);
-                        // Don't throw error if preview is working, just log the warning
-                        // This allows the user to still see the preview even if printing fails
+                        if (result.failureReason) {
+                            alert(result.failureReason);
+                        }
                     }
                 } catch (error) {
                     console.error('❌ Enhanced local file URL print failed:', error);
@@ -322,6 +331,50 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
         setTimeout(() => {
             window.location.reload();
         }, 2000);
+    };
+
+    const handlePreviewDocx = async () => {
+        if (!analysisResult || !fileName) return;
+        
+        const finalIsDesktopApp = isDesktopApp || window.electronAPI;
+        const localFileAPI = window.localFileAPI;
+        
+        // Check if this is a DOCX file
+        const fileExtension = fileName.toLowerCase().split('.').pop();
+        const isDocxFile = fileExtension === 'docx';
+        
+        if (!isDocxFile) {
+            alert('Preview hanya tersedia untuk file DOCX.');
+            return;
+        }
+        
+        if (!finalIsDesktopApp || !localFileAPI) {
+            alert('Preview DOCX hanya tersedia di aplikasi desktop.');
+            return;
+        }
+        
+        setIsPreviewLoading(true);
+        
+        try {
+            const filePath = analysisResult.file_url || previewUrl;
+            if (!filePath || !filePath.startsWith('file://')) {
+                throw new Error('File path tidak valid untuk preview');
+            }
+            
+            console.log('📄 Opening DOCX preview for:', filePath);
+            const result = await localFileAPI.previewDocxFile(filePath);
+            
+            if (result.success) {
+                console.log('✅ DOCX preview opened successfully');
+            } else {
+                throw new Error(result.message || 'Gagal membuka preview');
+            }
+        } catch (error) {
+            console.error('❌ DOCX preview failed:', error);
+            alert('Gagal membuka preview DOCX: ' + (error instanceof Error ? error.message : 'Unknown error'));
+        } finally {
+            setIsPreviewLoading(false);
+        }
     };
 
     return (
@@ -396,6 +449,20 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
                     </div>
 
                     <div className="space-y-2 pt-1">
+                        {/* Preview DOCX Button - only show for DOCX files in desktop app */}
+                        {analysisResult && fileName && fileName.toLowerCase().endsWith('.docx') && (isDesktopApp || window.electronAPI) && (
+                            <Button
+                                onClick={handlePreviewDocx}
+                                disabled={isPreviewLoading}
+                                className="w-full gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
+                                size="sm"
+                                variant="outline"
+                            >
+                                <Eye className="h-4 w-4" />
+                                {isPreviewLoading ? 'Membuka Preview...' : 'Preview DOCX'}
+                            </Button>
+                        )}
+                        
                         {analysisResult && analysisResult.total_price > 0 && (
                             <Button
                                 onClick={addToCart}

@@ -55,6 +55,9 @@ contextBridge.exposeInMainWorld('localFileAPI', {
   getPrintSettings: () => ipcRenderer.invoke('get-print-settings'),
   savePrintSettings: (settings) => ipcRenderer.invoke('save-print-settings', settings),
   
+  // DOCX operations
+  previewDocxFile: (filePath) => ipcRenderer.invoke('preview-docx-file', filePath),
+  
   // File system operations
   getFileInfo: (filePath) => ipcRenderer.invoke('get-file-info', filePath)
 });

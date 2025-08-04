@@ -1,5 +1,6 @@
 import { ipcMain, BrowserWindow, dialog, shell } from 'electron';
 import fs from 'fs';
+import path from 'path';
 import FormData from 'form-data';
 import { mainWindow, createFileBrowserWindow } from '../windows/window-manager.js';
 import { fetchWithRetry } from '../utils/network.js';
@@ -11,6 +12,11 @@ import {
   savePrintSettings,
   clearAnalysisCache
 } from '../storage/store.js';
+import {
+  smartDocxToPdfConversion,
+  convertDocxToHtml,
+  isLibreOfficeAvailable
+} from '../utils/docx-converter.js';
 
 // Setup main IPC handlers
 export function setupIpcHandlers() {
@@ -169,9 +175,8 @@ export function setupIpcHandlers() {
       const isDocxFile = fileExtension === 'docx';
       
       if (isDocxFile) {
-        console.log('📄 DOCX file detected, using system default application');
+        console.log('📄 DOCX file detected, attempting conversion to PDF');
         
-        // For DOCX files, try to open with system default application
         try {
           const actualFilePath = filePath.startsWith('file://') ? filePath.replace('file://', '') : filePath;
           
@@ -180,20 +185,94 @@ export function setupIpcHandlers() {
             throw new Error('DOCX file not found');
           }
           
-          // Open with system default application
-          await shell.openPath(actualFilePath);
+          // Check if LibreOffice is available
+          if (!isLibreOfficeAvailable()) {
+            console.log('⚠️ LibreOffice not available, falling back to system default application');
+            try {
+              await shell.openPath(actualFilePath);
+              return {
+                success: true,
+                message: 'LibreOffice tidak ditemukan. File DOCX dibuka dengan aplikasi default sistem. Silakan cetak dari aplikasi yang terbuka.'
+              };
+            } catch (openError) {
+              console.error('❌ Failed to open with system default:', openError);
+              return {
+                success: false,
+                failureReason: 'Tidak dapat membuka file DOCX. Silakan install LibreOffice atau Microsoft Word untuk mencetak file DOCX.'
+              };
+            }
+          }
           
-          // Return success - user will need to print from the opened application
+          // Create temporary directory for PDF conversion
+          const tempDir = path.join(process.cwd(), 'temp', 'pdf-conversion');
+          if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+          }
+          
+          // Convert DOCX to PDF using LibreOffice headless
+          console.log('🔄 Converting DOCX to PDF using LibreOffice headless...');
+          const pdfPath = await smartDocxToPdfConversion(actualFilePath, tempDir);
+          
+          // Create print window for the converted PDF
+          const printWindow = new BrowserWindow({
+            width: 800,
+            height: 600,
+            show: false,
+            webPreferences: {
+              nodeIntegration: false,
+              contextIsolation: true
+            }
+          });
+          
+          // Load the PDF file
+          await printWindow.loadFile(pdfPath);
+          
+          // Print the PDF
+          printWindow.webContents.print(printSettings || {}, (success, failureReason) => {
+            if (success) {
+              console.log('✅ DOCX converted and printed successfully');
+            } else {
+              console.error('❌ Print failed:', failureReason);
+            }
+            
+            // Clean up
+            printWindow.close();
+            
+            // Optionally clean up temporary PDF file
+            setTimeout(() => {
+              try {
+                if (fs.existsSync(pdfPath)) {
+                  fs.unlinkSync(pdfPath);
+                  console.log('🗑️ Temporary PDF file cleaned up');
+                }
+              } catch (cleanupError) {
+                console.warn('⚠️ Failed to clean up temporary PDF:', cleanupError);
+              }
+            }, 5000);
+          });
+          
           return {
             success: true,
-            message: 'DOCX file opened with system default application. Please print from the opened application.'
+            message: 'DOCX file converted to PDF and sent to printer successfully.'
           };
-        } catch (error) {
-          console.error('Failed to open DOCX with system app:', error);
-          return {
-            success: false,
-            failureReason: 'Gagal membuka file DOCX. Pastikan Microsoft Word atau aplikasi yang mendukung DOCX terinstall.'
-          };
+        } catch (conversionError) {
+          console.error('❌ DOCX conversion failed:', conversionError);
+          
+          // Fallback to system default application
+          try {
+            const actualFilePath = filePath.startsWith('file://') ? filePath.replace('file://', '') : filePath;
+            await shell.openPath(actualFilePath);
+            return {
+              success: true,
+              message: `DOCX conversion failed (${conversionError.message}). File opened with system default application. Please print from the opened application.`
+            };
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          } catch (fallbackError) {
+            return {
+              success: false,
+              failureReason: 'Konversi DOCX gagal dan tidak dapat membuka dengan aplikasi default. Silakan install LibreOffice (gratis) atau Microsoft Word untuk mencetak file DOCX.'
+            };
+          }
         }
       }
       
@@ -241,6 +320,117 @@ export function setupIpcHandlers() {
     } catch (error) {
       console.error('Enhanced print error:', error);
       return { success: false, failureReason: error.message };
+    }
+  });
+
+  // DOCX preview handler
+  ipcMain.handle('preview-docx-file', async (event, filePath) => {
+    try {
+      console.log('📄 DOCX preview request:', filePath);
+      
+      const actualFilePath = filePath.startsWith('file://') ? filePath.replace('file://', '') : filePath;
+      
+      // Check if file exists
+      if (!fs.existsSync(actualFilePath)) {
+        throw new Error('DOCX file not found');
+      }
+      
+      // Convert DOCX to HTML for preview
+      const htmlContent = await convertDocxToHtml(actualFilePath);
+      
+      // Create preview window
+      const previewWindow = new BrowserWindow({
+        width: 900,
+        height: 700,
+        show: true,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true
+        },
+        title: `Preview: ${path.basename(actualFilePath)}`
+      });
+      
+      // Create HTML page with styling
+      const styledHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>DOCX Preview</title>
+          <style>
+            body {
+              font-family: 'Times New Roman', serif;
+              line-height: 1.6;
+              max-width: 800px;
+              margin: 0 auto;
+              padding: 20px;
+              background-color: #f5f5f5;
+            }
+            .document {
+              background-color: white;
+              padding: 40px;
+              box-shadow: 0 0 10px rgba(0,0,0,0.1);
+              min-height: 800px;
+            }
+            h1, h2, h3, h4, h5, h6 {
+              color: #333;
+              margin-top: 1.5em;
+              margin-bottom: 0.5em;
+            }
+            p {
+              margin-bottom: 1em;
+              text-align: justify;
+            }
+            .toolbar {
+              position: fixed;
+              top: 10px;
+              right: 10px;
+              background: white;
+              padding: 10px;
+              border-radius: 5px;
+              box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+              z-index: 1000;
+            }
+            .toolbar button {
+              margin: 0 5px;
+              padding: 8px 12px;
+              border: none;
+              border-radius: 3px;
+              background: #007acc;
+              color: white;
+              cursor: pointer;
+            }
+            .toolbar button:hover {
+              background: #005a9e;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="toolbar">
+            <button onclick="window.print()">🖨️ Print</button>
+            <button onclick="window.close()">❌ Close</button>
+          </div>
+          <div class="document">
+            ${htmlContent}
+          </div>
+        </body>
+        </html>
+      `;
+      
+      // Load the HTML content
+      await previewWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(styledHtml)}`);
+      
+      return {
+        success: true,
+        message: 'DOCX preview opened successfully'
+      };
+      
+    } catch (error) {
+      console.error('❌ DOCX preview failed:', error);
+      return {
+        success: false,
+        message: 'Failed to preview DOCX: ' + error.message
+      };
     }
   });
 }

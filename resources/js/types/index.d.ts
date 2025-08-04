@@ -64,3 +64,25 @@ export interface Setting {
     created_at: string;
     updated_at: string;
 }
+
+// Desktop app API interfaces
+export interface LocalFileAPI {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getPrintSettings(): Promise<any>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    printLocalFileEnhanced(options: { filePath: string; printSettings?: any }): Promise<{ success: boolean; message?: string; failureReason?: string }>;
+    previewDocxFile(filePath: string): Promise<{ success: boolean; message?: string }>;
+}
+
+export interface ElectronAPI {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    printDocument(url: string): Promise<any>;
+}
+
+// Extend Window interface
+declare global {
+    interface Window {
+        electronAPI?: ElectronAPI;
+        localFileAPI?: LocalFileAPI;
+    }
+}

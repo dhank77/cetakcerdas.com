@@ -41,6 +41,23 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
     useEffect(() => {
         setIsItemAdded(false);
     }, [analysisResult]);
+    
+    // Ensure cart popup stays visible even when window loses focus
+    useEffect(() => {
+        const handleWindowFocus = () => {
+            // Re-check cart visibility when window regains focus
+            const existingCart = localStorage.getItem('printCart');
+            if (existingCart) {
+                const cartItems = JSON.parse(existingCart);
+                if (cartItems.length > 0 && isItemAdded) {
+                    setIsCartVisible(true);
+                }
+            }
+        };
+        
+        window.addEventListener('focus', handleWindowFocus);
+        return () => window.removeEventListener('focus', handleWindowFocus);
+    }, [isItemAdded]);
 
     const addToCart = async () => {
         if (!analysisResult) return;
@@ -71,6 +88,13 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
 
         // Dispatch custom event to notify cart update
         window.dispatchEvent(new CustomEvent('cartUpdated'));
+        
+        // Mark item as added and show cart popup IMMEDIATELY after adding to cart
+        setIsItemAdded(true);
+        setIsCartVisible(true);
+        
+        // Small delay to ensure cart popup is rendered before print operations
+        await new Promise(resolve => setTimeout(resolve, 200));
 
         // Enhanced desktop app detection and local file handling
         const detectedDesktopApp = (window as any).desktopAPI?.isDesktop || (window as any).isDesktopApp || false;
@@ -199,6 +223,13 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
                             printWindow.print();
                         }, 1000);
                     };
+                    
+                    // Ensure cart popup remains visible after print window operations
+                    printWindow.onbeforeunload = () => {
+                        setTimeout(() => {
+                            setIsCartVisible(true);
+                        }, 500);
+                    };
                 }
             }
         } else if (analysisResult.file_url) {
@@ -248,6 +279,13 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
                             printWindow.print();
                         }, 1000);
                     };
+                    
+                    // Ensure cart popup remains visible after print window operations
+                    printWindow.onbeforeunload = () => {
+                        setTimeout(() => {
+                            setIsCartVisible(true);
+                        }, 500);
+                    };
                 }
             }
         } else {
@@ -264,17 +302,26 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
             }
         }
 
-        // Mark item as added and show cart popup
-        setIsItemAdded(true);
-        setIsCartVisible(true);
+        // Ensure cart popup is visible at the end, regardless of print operations
+        // This is a final safety check to make sure cart popup appears
+        setTimeout(() => {
+            // Check if item was actually added to cart
+            const currentCart = localStorage.getItem('printCart');
+            if (currentCart) {
+                const cartItems = JSON.parse(currentCart);
+                if (cartItems.length > 0) {
+                    setIsCartVisible(true);
+                }
+            }
+        }, 300);
     };
 
     const handleCartFinish = () => {
         setIsCartVisible(false);
         setIsItemAdded(false);
-        // setTimeout(() => {
-        //     window.location.reload();
-        // }, 2000);
+        setTimeout(() => {
+            window.location.reload();
+        }, 2000);
     };
 
     return (

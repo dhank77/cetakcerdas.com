@@ -125,7 +125,7 @@ desktop-app/
 
 ```bash
 # Development
-SERVER_URL=http://localhost:8000
+SERVER_URL=http://print.test
 
 # Production  
 SERVER_URL=https://cetakcerdas.com

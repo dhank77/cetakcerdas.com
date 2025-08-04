@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AnalysisResult } from '@/types/analysis';
-import { FolderOpen, FileText, Printer, Trash2, RefreshCw, Clock, CheckCircle } from 'lucide-react';
+import { FolderOpen, FileText, Printer, Trash2, RefreshCw, Clock, CheckCircle, Eye } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 
 interface LocalFile {
@@ -50,10 +50,16 @@ const LocalFileBrowser: React.FC<LocalFileBrowserProps> = () => {
   const [isPrinting, setIsPrinting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
     loadAnalysisHistory();
   }, []);
+
+  // Reset preview when selected file changes
+  useEffect(() => {
+    setPreviewUrl(null);
+  }, [selectedFile]);
 
   const loadAnalysisHistory = async () => {
     setIsLoading(true);
@@ -141,6 +147,21 @@ const LocalFileBrowser: React.FC<LocalFileBrowserProps> = () => {
     }
   };
 
+  const previewFile = async (file: LocalFile) => {
+    try {
+      if (window.localFileAPI) {
+        // Create a preview URL for the file
+        const fileUrl = `file://${file.filePath}`;
+        setPreviewUrl(fileUrl);
+      } else {
+        setError('Desktop API not available');
+      }
+    } catch (error) {
+      console.error('Preview failed:', error);
+      setError('Failed to preview file');
+    }
+  };
+
   const printFile = async (file: LocalFile) => {
     if (!file.analysisResult) {
       setError('File must be analyzed before printing');
@@ -161,7 +182,7 @@ const LocalFileBrowser: React.FC<LocalFileBrowserProps> = () => {
         if (result.success) {
           // Check if it's a DOCX file that was opened with system app
           if (result.message && file.fileName.toLowerCase().endsWith('.docx')) {
-            alert('File DOCX berhasil dibuka dengan aplikasi default sistem. Silakan cetak dari aplikasi yang terbuka (misalnya Microsoft Word).');
+            alert('File DOCX berhasil dibuka dengan aplikasi default sistem. Silakan cetak dari aplikasi yang terbuka (misalnya WPS Office, Microsoft Word, atau LibreOffice).');
           }
         } else {
           throw new Error(result.failureReason || 'Print failed');
@@ -397,6 +418,14 @@ const LocalFileBrowser: React.FC<LocalFileBrowserProps> = () => {
                   
                   <div className="flex gap-2">
                     <Button 
+                      onClick={() => previewFile(selectedFile)} 
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      Preview
+                    </Button>
+                    <Button 
                       onClick={() => printFile(selectedFile)} 
                       className="flex-1"
                       disabled={isPrinting}
@@ -421,6 +450,63 @@ const LocalFileBrowser: React.FC<LocalFileBrowserProps> = () => {
                       Add to Cart
                     </Button>
                   </div>
+                  
+                  {/* Preview Section */}
+                  {previewUrl && (
+                    <div className="mt-4">
+                      <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">File Preview</h4>
+                      <div className="border rounded-lg overflow-hidden bg-white dark:bg-gray-800">
+                        {selectedFile.fileName.toLowerCase().endsWith('.pdf') ? (
+                          <iframe 
+                            src={previewUrl} 
+                            className="w-full h-96" 
+                            title="Document Preview"
+                            onError={() => {
+                              setError('Cannot preview this file type');
+                              setPreviewUrl(null);
+                            }}
+                          />
+                        ) : selectedFile.fileName.toLowerCase().match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i) ? (
+                          <img 
+                            src={previewUrl} 
+                            alt="Image Preview" 
+                            className="w-full h-96 object-contain"
+                            onError={() => {
+                              setError('Cannot preview this image');
+                              setPreviewUrl(null);
+                            }}
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center h-96 text-gray-500 dark:text-gray-400">
+                            <div className="text-center">
+                              <FileText className="h-12 w-12 mx-auto mb-2" />
+                              <p>Preview tidak tersedia untuk tipe file ini</p>
+                              <p className="text-sm">Gunakan aplikasi default sistem untuk membuka file</p>
+                              <Button 
+                                onClick={() => setPreviewUrl(null)} 
+                                variant="outline" 
+                                size="sm" 
+                                className="mt-2"
+                              >
+                                Tutup Preview
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {(selectedFile.fileName.toLowerCase().endsWith('.pdf') || selectedFile.fileName.toLowerCase().match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i)) && (
+                        <div className="mt-2 flex justify-end">
+                          <Button 
+                            onClick={() => setPreviewUrl(null)} 
+                            variant="outline" 
+                            size="sm"
+                          >
+                            Tutup Preview
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-8">

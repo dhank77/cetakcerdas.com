@@ -135,19 +135,19 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
                         if (result.success) {
                             console.log('✅ Local DOCX print successful');
                             if (result.message) {
-                                alert('File DOCX berhasil dibuka dengan aplikasi default sistem. Silakan cetak dari aplikasi yang terbuka (misalnya Microsoft Word).');
+                                alert('File DOCX berhasil dibuka dengan aplikasi default sistem. Silakan cetak dari aplikasi yang terbuka (misalnya WPS Office, Microsoft Word, atau LibreOffice).');
                             }
                         } else {
                             console.warn('⚠️ Local DOCX print warning:', result.failureReason);
                             // Don't throw error for DOCX files, just show a user-friendly message
-                            alert('File DOCX berhasil dianalisis tetapi tidak dapat dicetak langsung. Silakan buka file dengan Microsoft Word untuk mencetak.');
+                            alert('File DOCX berhasil dianalisis tetapi tidak dapat dicetak langsung. Silakan buka file dengan aplikasi office (WPS Office, Microsoft Word, atau LibreOffice) untuk mencetak.');
                         }
                     } else {
                         throw new Error('Invalid file path for local DOCX');
                     }
                 } catch (error) {
                     console.error('❌ Local DOCX print failed:', error);
-                    alert('Gagal mencetak file DOCX. Pastikan Microsoft Word atau aplikasi yang mendukung DOCX terinstall di sistem Anda.');
+                    alert('Gagal mencetak file DOCX. Pastikan aplikasi office seperti Microsoft Word, WPS Office, atau LibreOffice terinstall di sistem Anda.');
                 }
             } else {
                 alert('Local file API tidak tersedia. Silakan restart aplikasi desktop.');
@@ -258,7 +258,7 @@ const PriceAnalysis: React.FC<PriceAnalysisProps> = ({
             // For DOCX files, provide alternative solution
             if (previewUrl === 'docx-pending' || previewUrl === 'docx-info') {
                 console.log('📄 DOCX file detected, providing alternative solution');
-                alert('File DOCX tidak dapat dicetak langsung dari aplikasi desktop. Silakan:\n\n1. Download file DOCX\n2. Buka dengan Microsoft Word\n3. Print dari Word\n\nAtau convert ke PDF terlebih dahulu untuk hasil terbaik.');
+                alert('File DOCX tidak dapat dicetak langsung dari aplikasi desktop. Silakan:\n\n1. Download file DOCX\n2. Buka dengan aplikasi office (WPS Office, Microsoft Word, atau LibreOffice)\n3. Print dari aplikasi tersebut\n\nAtau convert ke PDF terlebih dahulu untuk hasil terbaik.');
             } else {
                 alert('Dokumen tidak tersedia untuk dicetak. Silakan upload ulang dokumen.');
             }

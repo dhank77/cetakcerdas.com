@@ -69,7 +69,7 @@ export function createWindow() {
   });
 
   // Load application URL
-  const url = CONFIG.isDev ? 'http://localhost:8000/protected-print' : `${CONFIG.SERVER_URL}/protected-print`;
+  const url = CONFIG.isDev ? 'http://print.test/protected-print' : `${CONFIG.SERVER_URL}/protected-print`;
   mainWindow.loadURL(url);
   
   if (CONFIG.isDev) {

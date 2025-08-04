@@ -45,7 +45,7 @@ The desktop application (`desktop-app/src/windows/window-manager.js`) is configu
 
 ## Development Mode
 
-When running in development mode (`--dev` flag), the desktop app connects to `http://localhost:8000` instead of the production server.
+When running in development mode (`--dev` flag), the desktop app connects to `http://print.test` instead of the production server.
 
 ## Benefits
 

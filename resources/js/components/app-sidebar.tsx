@@ -30,10 +30,10 @@ export function AppSidebar() {
             routeName: 'dashboard',
         },
         {
-            title: 'Halaman Print',
-            href: route('print.redirect'),
+            title: 'Download Aplikasi Desktop',
+            href: route('desktop.download'),
             icon: Printer,
-            routeName: 'print.redirect',
+            routeName: 'desktop.download',
         },
         {
             title: 'Riwayat Print',

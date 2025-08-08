@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Frontend\BookingController;
 use App\Http\Controllers\Frontend\CalculatePriceController;
+use App\Http\Controllers\Frontend\DesktopAppController;
 use App\Http\Controllers\Frontend\LandingController;
 use App\Http\Controllers\Frontend\PrintController;
 use App\Http\Controllers\SettingController;
@@ -30,6 +31,9 @@ Route::post('/calculate-price', CalculatePriceController::class)
 // API endpoint for user settings (for desktop app)
 Route::get('/api/user-settings/{slug}', [SettingController::class, 'getUserSettings'])
     ->name('api.user-settings');
+
+// Desktop app download page
+Route::get('/desktop-app', [DesktopAppController::class, 'download'])->name('desktop.download');
 
 require __DIR__.'/admin.php';
 require __DIR__.'/settings.php';

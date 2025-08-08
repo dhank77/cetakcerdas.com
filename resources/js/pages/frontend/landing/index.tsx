@@ -85,8 +85,10 @@ const Index = () => {
                                 🚀 Coba Gratis Sekarang
                             </Button>
                         </Link>
-                        <Button size="lg" variant="outline" className="px-8 py-4 text-lg">
-                            📹 Lihat Demo
+                        <Button size="lg" variant="outline" className="px-8 py-4 text-lg" asChild>
+                            <Link href={route('desktop.download')}>
+                                🔽 Download Aplikasi
+                            </Link>
                         </Button>
                     </div>
                     <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">

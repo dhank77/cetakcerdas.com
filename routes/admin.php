@@ -16,7 +16,9 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
 
-    Route::get('print-redirect', [PrintController::class, 'redirect'])->name('print.redirect');
+    Route::get('print-redirect', function() {
+        return redirect()->route('desktop.download');
+    })->name('print.redirect');
     
     Route::prefix('setting')->name('setting.')->group(function () {
         Route::get('', [SettingController::class, 'index'])->name('index');
